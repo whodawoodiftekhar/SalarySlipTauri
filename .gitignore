@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+target/
+*.exe
+
+# Logs & Environment
+.env
+.env.local
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store

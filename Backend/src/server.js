@@ -1,0 +1,100 @@
+import crypto from "node:crypto";
+
+if (typeof globalThis.crypto === "undefined") {
+  globalThis.crypto = crypto;
+}
+
+import "dotenv/config";
+import cors from "cors";
+import express from "express";
+import mongoose from "mongoose";
+import { connectDBWithRetry } from "./config/db.js";
+import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import catalogRoutes from "./routes/catalog.js";
+import employeeRoutes from "./routes/employees.js";
+import payrollRoutes from "./routes/payroll.js";
+import settingsRoutes from "./routes/settings.js";
+
+const PORT = process.env.PORT ?? 5000;
+const MONGODB_URI =
+  process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/salaryslip";
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
+
+const app = express();
+
+app.use(cors({ origin: CORS_ORIGIN }));
+app.use(express.json());
+
+app.get("/api/health", (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  res.json({
+    ok: true,
+    dbConnected: isDbConnected,
+    dbState: mongoose.connection.readyState,
+    message: isDbConnected
+      ? "Connected to MongoDB"
+      : "Waiting for local MongoDB..."
+  });
+});
+
+// Middleware to check DB connection for data endpoints
+const checkDbConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    if (req.method === "GET") {
+      res.setHeader("X-DB-Connected", "false");
+      // If endpoint is settings, return DEFAULT_SETTINGS
+      if (req.baseUrl === "/api/settings" || req.path === "/settings") {
+        return res.json({
+          company: {
+            name: "COMM-IT",
+            legalName: "COMM-IT INDIA PVT. LTD.",
+            addressShort: "New Delhi 110025",
+            addressLines: [
+              "S-113, First Floor, Salcon Aurum, Jasola District Centre",
+              "Opposite Omax Square, New Delhi 110025",
+            ],
+          },
+          payPeriod: "Jul 2026",
+          standardDays: 30,
+          departments: ["IT", "Design", "HR", "Finance", "Operations"],
+          slipDefaults: {
+            bankName: "HDFC Bank",
+            bankAccountNo: "XXXXXXXXX",
+            pfAccountNo: "DL-XXXXXXXXXX",
+            footNote: "This is a computer generated salary slip and does not require signature",
+          },
+          currentUser: {
+            initials: "HR",
+            name: "HR Admin",
+            email: "payroll@comm-it.com",
+          },
+        });
+      }
+      // For all other GET endpoints when DB is offline, return empty list
+      return res.json([]);
+    }
+    return res.status(503).json({
+      error: "Service Unavailable",
+      message: "Cannot save changes because local MongoDB is offline. Please start local MongoDB.",
+      dbConnected: false
+    });
+  }
+  next();
+};
+
+app.use("/api/settings", checkDbConnection, settingsRoutes);
+app.use("/api/employees", checkDbConnection, employeeRoutes);
+app.use("/api/salary-components", checkDbConnection, catalogRoutes);
+app.use("/api/payroll", checkDbConnection, payrollRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+// Start server immediately
+app.listen(PORT, () => {
+  console.log(`API listening on http://localhost:${PORT}/api`);
+  console.log(`CORS allowed for ${CORS_ORIGIN}`);
+  // Start DB connection loop asynchronously
+  connectDBWithRetry(MONGODB_URI);
+});
+
