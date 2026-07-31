@@ -1,4 +1,4 @@
-import { Filter, Plus } from "lucide-react";
+import { FileSpreadsheet, Filter, Plus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/features/settings/hooks/useSettings";
@@ -10,6 +10,7 @@ import { SearchInput } from "@/shared/components/ui/SearchInput";
 import type { RosterEntry } from "@/shared/types";
 import { EditEmployeeModal } from "./components/EditEmployeeModal";
 import { EmployeeTable } from "./components/EmployeeTable";
+import { ExportExcelModal } from "./components/ExportExcelModal";
 import { useEmployees } from "./hooks/useEmployees";
 import type { UpdateEmployeeDto } from "./types";
 
@@ -21,6 +22,7 @@ export default function EmployeesPage() {
   const [q, setQ] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
   const [editingEmployee, setEditingEmployee] = useState<RosterEntry | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const [actionError, setActionError] = useState<Error | null>(null);
 
   const depts = ["All", ...Array.from(new Set([...departments, ...roster.map((e) => e.dept)]))];
@@ -73,6 +75,15 @@ export default function EmployeesPage() {
             onChange={setQ}
             placeholder="Search name, code, department…"
           />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowExport(true)}
+            disabled={loading || roster.length === 0}
+            className="border border-line bg-paper text-ink hover:bg-slate-100"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" /> Export Excel
+          </Button>
           <Button size="sm" onClick={() => navigate("/employees/new")} disabled={loading}>
             <Plus size={14} /> Add employee
           </Button>
@@ -146,6 +157,13 @@ export default function EmployeesPage() {
           saving={saving}
           onCancel={() => setEditingEmployee(null)}
           onSave={handleSaveEdit}
+        />
+      )}
+
+      {showExport && (
+        <ExportExcelModal
+          roster={roster}
+          onClose={() => setShowExport(false)}
         />
       )}
     </Card>
