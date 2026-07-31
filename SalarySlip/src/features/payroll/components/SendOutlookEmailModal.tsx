@@ -5,7 +5,6 @@ import { Button } from "@/shared/components/ui/Button";
 import { inr } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
 import { useSettings } from "@/features/settings/hooks/useSettings";
-import { generateStyledPayslipHtml } from "@/shared/lib/payslipHtml";
 import { env } from "@/config/env";
 
 interface SendOutlookEmailModalProps {

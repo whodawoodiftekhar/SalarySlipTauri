@@ -1,4 +1,4 @@
-import { Mail, Printer, X } from "lucide-react";
+import { Printer, X } from "lucide-react";
 import { useState } from "react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
