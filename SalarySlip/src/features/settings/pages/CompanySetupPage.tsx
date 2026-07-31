@@ -1,8 +1,11 @@
 import { useState } from "react";
 import {
+  AlertCircle,
   Building2,
-  Check,
-  Image as ImageIcon,
+  CheckCircle2,
+  ImageIcon,
+  Loader2,
+  MapPin,
   Save,
   Trash2,
   Type,
@@ -10,15 +13,77 @@ import {
 } from "lucide-react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { settingsService } from "@/features/settings/services/settingsService";
-import { Button } from "@/shared/components/ui/Button";
-import { Card } from "@/shared/components/ui/Card";
-import { FIELD_INPUT } from "@/shared/components/ui/Field";
+import { LOGO } from "@/shared/lib/branding";
 
+/* ─── Reusable styled field ─────────────────────────────────────────── */
+function Field({
+  label,
+  hint,
+  children,
+  span2 = false,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+  span2?: boolean;
+}) {
+  return (
+    <label
+      className={`flex flex-col gap-1.5 ${span2 ? "col-span-2 max-[640px]:col-span-1" : ""}`}
+    >
+      <span className="text-[11.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+        {label}
+      </span>
+      {children}
+      {hint && (
+        <span className="text-[11px] text-slate-400 leading-tight">{hint}</span>
+      )}
+    </label>
+  );
+}
+
+const INPUT =
+  "w-full rounded-xl border border-slate-200 bg-white/80 px-3.5 py-2.5 text-[13.5px] font-medium text-slate-800 shadow-sm transition-all duration-150 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-300 hover:border-slate-300";
+
+/* ─── Section card wrapper ───────────────────────────────────────────── */
+function Section({
+  icon,
+  title,
+  accent = "indigo",
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  accent?: string;
+  children: React.ReactNode;
+}) {
+  const accentMap: Record<string, string> = {
+    indigo: "from-indigo-500 to-violet-500",
+    emerald: "from-emerald-500 to-teal-500",
+    amber: "from-amber-500 to-orange-500",
+  };
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      {/* Section header stripe */}
+      <div
+        className={`flex items-center gap-3 bg-gradient-to-r ${accentMap[accent] ?? accentMap.indigo} px-5 py-3.5`}
+      >
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 text-white">
+          {icon}
+        </div>
+        <h2 className="text-[13px] font-bold tracking-wide text-white uppercase">
+          {title}
+        </h2>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+/* ─── Main page ──────────────────────────────────────────────────────── */
 export default function CompanySetupPage() {
-  const settings = useSettings();
-  const { company, slipDefaults, refetchSettings } = settings;
+  const { company, slipDefaults, refetchSettings } = useSettings();
 
-  // Form State
   const [name, setName] = useState(company.name || "COMM-IT");
   const [legalName, setLegalName] = useState(
     company.legalName || "COMM-IT INDIA PVT. LTD."
@@ -34,19 +99,36 @@ export default function CompanySetupPage() {
     company.addressLines?.[1] || "Opposite Omax Square, New Delhi 110025"
   );
   const [logoUrl, setLogoUrl] = useState(company.logoUrl || "");
-  const [watermarkText, setWatermarkText] = useState(company.watermarkText || company.name || "");
+  const [watermarkText, setWatermarkText] = useState(
+    company.watermarkText || company.name || ""
+  );
 
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg("Logo must be under 2 MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLogoUrl(reader.result);
+        setErrorMsg(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSuccessMsg(null);
     setErrorMsg(null);
-
     try {
       await settingsService.update({
         company: {
@@ -58,252 +140,264 @@ export default function CompanySetupPage() {
           watermarkText,
           isConfigured: true,
         },
-        slipDefaults: slipDefaults,
+        slipDefaults,
       });
       await refetchSettings();
-      setSuccessMsg("Company setup saved successfully to MongoDB!");
+      setSuccessMsg("Company profile saved to MongoDB!");
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: unknown) {
-      setErrorMsg(
-        (err as Error)?.message || "Failed to save company setup"
-      );
+      setErrorMsg((err as Error)?.message || "Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-ink via-slate-900 to-indigo-950 p-6 text-white shadow-md">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-5xl space-y-6 pb-10">
+
+      {/* ── Hero Banner ─────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] p-7 text-white shadow-xl">
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute -right-10 -top-10 h-52 w-52 rounded-full bg-white/5 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-8 right-32 h-40 w-40 rounded-full bg-indigo-400/10 blur-2xl" />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-5">
           <div>
-            <div className="flex items-center gap-2 text-[12px] font-semibold tracking-wider text-white/70 uppercase">
-              <Building2 size={14} className="text-amber-400" />
-              Organization Settings
-            </div>
-            <h1 className="mt-1 text-[22px] font-extrabold tracking-tight text-white">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-indigo-300">
+              <Building2 size={12} /> Organization Settings
+            </p>
+            <h1 className="text-[26px] font-extrabold tracking-tight leading-tight">
               Company Setup
             </h1>
-            <p className="mt-1 text-[13px] text-white/80">
-              Configure company name, logo, watermark, address and salary slip
-              defaults — saved directly to MongoDB.
+            <p className="mt-1.5 max-w-sm text-[13px] text-indigo-200/80 leading-relaxed">
+              Configure your brand logo, watermark, company name &amp; address.
+              Everything is saved to <span className="font-semibold text-white">MongoDB</span>.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-semibold backdrop-blur-sm">
-            <Building2 size={16} className="text-amber-400" />
-            {company.isConfigured ? "Setup Completed ✓" : "First-Time Setup"}
+
+          {/* Live mini-card preview */}
+          <div className="flex-none w-56 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 p-3.5 shadow-inner">
+            <div className="flex items-center gap-2.5 border-b border-white/10 pb-2.5 mb-2.5">
+              <img
+                src={logoUrl || LOGO}
+                alt="logo"
+                className="h-7 w-auto max-w-[56px] rounded object-contain bg-white/10 p-0.5"
+              />
+              <div>
+                <p className="text-[11px] font-extrabold leading-none text-white">{name}</p>
+                <p className="text-[9.5px] text-indigo-300 mt-0.5 leading-tight truncate max-w-[110px]">{legalName}</p>
+              </div>
+            </div>
+            <p className="text-[9.5px] text-indigo-300 flex items-start gap-1 leading-tight">
+              <MapPin size={9} className="mt-0.5 shrink-0" />
+              <span className="line-clamp-2">{addressShort}</span>
+            </p>
+            <div className="mt-2 rounded-md bg-white/10 px-2 py-1 text-center text-[8.5px] font-bold uppercase tracking-widest text-white/50">
+              {watermarkText || "WATERMARK PREVIEW"}
+            </div>
           </div>
+        </div>
+
+        {/* Status pill */}
+        <div className="absolute right-5 top-5">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold ${
+              company.isConfigured
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "bg-amber-500/20 text-amber-300"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${company.isConfigured ? "bg-emerald-400" : "bg-amber-400"}`} />
+            {company.isConfigured ? "Configured" : "First-time Setup"}
+          </span>
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* ── Toast messages ──────────────────────────────────────── */}
       {successMsg && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
-          <Check size={16} className="text-emerald-600 shrink-0" />
-          <span>{successMsg}</span>
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-800 shadow-sm animate-[fadeIn_0.2s_ease]">
+          <CheckCircle2 size={17} className="shrink-0 text-emerald-500" />
+          {successMsg}
         </div>
       )}
       {errorMsg && (
-        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs font-semibold text-red-800">
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-800 shadow-sm">
+          <AlertCircle size={17} className="shrink-0 text-red-500" />
           {errorMsg}
         </div>
       )}
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* ── Logos & Branding ─────────────────────────────── */}
-        <Card className="p-6 space-y-5">
-          <h2 className="flex items-center gap-2 border-b border-slate-100 pb-3 text-[15px] font-bold text-ink">
-            <ImageIcon size={17} className="text-indigo-600" /> Logos &amp; Branding
-          </h2>
+      <form onSubmit={handleSave} className="space-y-5">
 
-          <div className="grid grid-cols-2 gap-6 max-mob:grid-cols-1">
-            {/* Company Logo */}
+        {/* ── Branding ────────────────────────────────────────────── */}
+        <Section icon={<ImageIcon size={15} />} title="Branding &amp; Visual Identity" accent="indigo">
+          <div className="grid grid-cols-2 gap-5 max-[640px]:grid-cols-1">
+
+            {/* Logo upload */}
             <div className="space-y-2">
-              <p className="text-[13px] font-semibold text-ink">
-                Company Header Logo
+              <p className="text-[11.5px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                Company Logo
               </p>
-              <p className="text-[12px] text-slate-500">
-                Appears in the sidebar, slip header &amp; payslip top-left.
+              <p className="text-[12px] text-slate-400">
+                Shown in sidebar, payslip header &amp; printed slip. PNG / SVG / JPG, max 2 MB.
               </p>
-              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-4 text-center transition hover:border-indigo-400">
-                {logoUrl ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <img
-                      src={logoUrl}
-                      alt="Logo Preview"
-                      className="max-h-20 max-w-full rounded-lg object-contain shadow-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-8 text-xs text-red-600 hover:bg-red-50"
-                      onClick={() => setLogoUrl("")}
-                    >
-                      <Trash2 size={13} /> Remove
-                    </Button>
+
+              {logoUrl ? (
+                <div className="group relative flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-5">
+                  <img
+                    src={logoUrl}
+                    alt="Company Logo"
+                    className="max-h-24 max-w-full rounded-lg object-contain shadow-sm drop-shadow"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl("")}
+                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11.5px] font-semibold text-red-600 transition hover:bg-red-100"
+                  >
+                    <Trash2 size={12} /> Remove Logo
+                  </button>
+                  <span className="absolute top-2 right-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-600">
+                    ✓ Uploaded
+                  </span>
+                </div>
+              ) : (
+                <label className="group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-7 text-center transition-all duration-200 hover:border-indigo-400 hover:bg-indigo-50/30">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 transition group-hover:bg-indigo-200">
+                    <Upload size={20} />
                   </div>
-                ) : (
-                  <label className="flex cursor-pointer flex-col items-center gap-2 py-3">
-                    <Upload size={24} className="text-indigo-500" />
-                    <span className="text-[12px] font-medium text-indigo-600 hover:underline">
-                      Click to upload logo image
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      PNG, JPG, SVG · max 2 MB
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (file.size > 2 * 1024 * 1024) {
-                          setErrorMsg("Logo image must be less than 2MB");
-                          return;
-                        }
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          if (typeof reader.result === "string") {
-                            setLogoUrl(reader.result);
-                            setErrorMsg(null);
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
+                  <div>
+                    <p className="text-[13px] font-semibold text-indigo-600 group-hover:underline">
+                      Click to upload logo
+                    </p>
+                    <p className="text-[11px] text-slate-400">PNG, SVG, JPG · max 2 MB</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                </label>
+              )}
             </div>
 
-            {/* Watermark Text */}
+            {/* Watermark text */}
             <div className="space-y-2">
-              <p className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
-                <Type size={14} className="text-indigo-500" />
-                Payslip Watermark Text
+              <p className="text-[11.5px] font-bold uppercase tracking-[0.07em] text-slate-500 flex items-center gap-1.5">
+                <Type size={12} /> Payslip Watermark Text
               </p>
-              <p className="text-[12px] text-slate-500">
-                Faint diagonal text shown behind salary slip content when printed.
+              <p className="text-[12px] text-slate-400">
+                Faint diagonal text printed behind payslip content. Max 30 characters.
               </p>
-              <div className="space-y-3">
-                <input
-                  className={FIELD_INPUT + " w-full"}
-                  value={watermarkText}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setWatermarkText(e.target.value)
-                  }
-                  placeholder="e.g. COMM-IT, CONFIDENTIAL, PAID"
-                  maxLength={30}
-                />
-                {/* Live preview */}
-                <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                  <span className="pointer-events-none rotate-[-25deg] select-none text-[28px] font-extrabold uppercase tracking-widest text-slate-800 opacity-10">
-                    {watermarkText || "WATERMARK"}
+              <input
+                className={INPUT}
+                value={watermarkText}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setWatermarkText(e.target.value)
+                }
+                placeholder="e.g. COMM-IT  ·  CONFIDENTIAL  ·  PAID"
+                maxLength={30}
+              />
+              {/* Live preview box */}
+              <div className="relative flex h-28 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-inner">
+                <span
+                  className="pointer-events-none select-none font-extrabold uppercase tracking-[0.2em] text-slate-700 opacity-[0.08]"
+                  style={{ fontSize: "clamp(22px, 5vw, 38px)", transform: "rotate(-25deg)" }}
+                >
+                  {watermarkText || "PREVIEW"}
+                </span>
+                <div className="absolute inset-0 flex flex-col items-end justify-end p-2">
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                    Live Preview
                   </span>
-                  <span className="absolute bottom-1.5 right-2.5 text-[10px] text-slate-400">Preview</span>
                 </div>
+                {/* Grid dots overlay */}
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage: "radial-gradient(circle, #94a3b8 1px, transparent 1px)",
+                    backgroundSize: "16px 16px",
+                  }}
+                />
               </div>
             </div>
           </div>
-        </Card>
+        </Section>
 
-        {/* ── Company Information ───────────────────────────── */}
-        <Card className="p-6 space-y-5">
-          <h2 className="flex items-center gap-2 border-b border-slate-100 pb-3 text-[15px] font-bold text-ink">
-            <Building2 size={17} className="text-indigo-600" /> Company Information
-          </h2>
+        {/* ── Company Information ──────────────────────────────────── */}
+        <Section icon={<Building2 size={15} />} title="Company Information" accent="emerald">
+          <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
 
-          <div className="grid grid-cols-2 gap-4 max-mob:grid-cols-1">
-            <div className="flex flex-col gap-1">
-              <label className="text-[12.5px] font-semibold text-slate-700">
-                Display Brand Name
-              </label>
+            <Field label="Brand / Display Name" hint="Short name shown on UI">
               <input
-                className={FIELD_INPUT}
+                className={INPUT}
                 value={name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setName(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 placeholder="e.g. COMM-IT"
                 required
               />
-            </div>
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[12.5px] font-semibold text-slate-700">
-                Full Legal Entity Name
-              </label>
+            <Field label="Full Legal Entity Name" hint="Used on formal documents">
               <input
-                className={FIELD_INPUT}
+                className={INPUT}
                 value={legalName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLegalName(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLegalName(e.target.value)}
                 placeholder="e.g. COMM-IT INDIA PVT. LTD."
                 required
               />
-            </div>
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[12.5px] font-semibold text-slate-700">
-                City / Short Address
-              </label>
+            <Field label="City / Short Address" hint="One-liner location for payslip header">
               <input
-                className={FIELD_INPUT}
+                className={INPUT}
                 value={addressShort}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setAddressShort(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddressShort(e.target.value)}
                 placeholder="e.g. New Delhi 110025"
                 required
               />
-            </div>
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[12.5px] font-semibold text-slate-700">
-                Address Line 1
-              </label>
+            <Field label="Address Line 1">
               <input
-                className={FIELD_INPUT}
+                className={INPUT}
                 value={line1}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLine1(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLine1(e.target.value)}
                 placeholder="e.g. S-113, First Floor, Salcon Aurum"
                 required
               />
-            </div>
+            </Field>
 
-            <div className="col-span-2 flex flex-col gap-1 max-mob:col-span-1">
-              <label className="text-[12.5px] font-semibold text-slate-700">
-                Address Line 2
-              </label>
+            <Field label="Address Line 2" span2>
               <input
-                className={FIELD_INPUT}
+                className={INPUT}
                 value={line2}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLine2(e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLine2(e.target.value)}
                 placeholder="e.g. Opposite Omax Square, New Delhi 110025"
               />
-            </div>
+            </Field>
           </div>
-        </Card>
+        </Section>
 
-
-        {/* ── Save Button ───────────────────────────────────── */}
-        <div className="flex justify-end pt-2">
-          <Button
+        {/* ── Save bar ────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <p className="text-[12.5px] text-slate-500">
+            All changes are saved to the <span className="font-semibold text-slate-700">companysetup</span> collection in MongoDB.
+          </p>
+          <button
             type="submit"
-            className="bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-indigo-700"
             disabled={saving}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-2.5 text-[13.5px] font-bold text-white shadow-md shadow-indigo-200 transition-all duration-150 hover:from-indigo-700 hover:to-violet-700 hover:shadow-indigo-300 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Save size={15} />
-            {saving ? "Saving to MongoDB..." : "Save Company Setup"}
-          </Button>
+            {saving ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            {saving ? "Saving…" : "Save Company Setup"}
+          </button>
         </div>
+
       </form>
     </div>
   );
