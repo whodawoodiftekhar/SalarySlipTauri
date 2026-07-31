@@ -245,21 +245,150 @@ router.post("/send-email", async (req, res) => {
   }
 });
 
-/** POST /api/payroll/launch-outlook — launch Windows Outlook COM object with attached PDF payslip */
+/**
+ * PowerShell that opens a compose window for the payslip.
+ *
+ * All values arrive via a UTF-8 JSON file rather than string interpolation —
+ * the body carries ₹, apostrophes and newlines, every one of which used to
+ * break the generated script.
+ *
+ * Only COM can attach a file to a draft. New Outlook (the Store "Outlook for
+ * Windows" app) exposes no COM server and its mailto: handler ignores
+ * attachments, so when COM is absent we open the composer *without* the PDF and
+ * say so — the caller then tells the user to drag it from Downloads.
+ */
+const OUTLOOK_PS_SCRIPT = String.raw`
+$ErrorActionPreference = 'Continue'
+$cfg = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8 | ConvertFrom-Json
+
+# Method 1 — COM automation (classic Outlook desktop). The only route that can
+# attach the PDF to the draft.
+try {
+    $Outlook = New-Object -ComObject Outlook.Application
+    if ($Outlook) {
+        $Mail = $Outlook.CreateItem(0)
+        $Mail.To = $cfg.to
+        $Mail.Subject = $cfg.subject
+        $Mail.Body = $cfg.body
+        if (Test-Path -LiteralPath $cfg.attachment) {
+            $Mail.Attachments.Add($cfg.attachment) | Out-Null
+        }
+        $Mail.Display()
+        Write-Output 'RESULT:COM_ATTACHED'
+        exit 0
+    }
+} catch {
+    Write-Output "INFO:COM unavailable - $($_.Exception.Message)"
+}
+
+# Method 2 — classic outlook.exe CLI. /m carries the recipient+subject+body and
+# /a the attachment.
+try {
+    $outlookPath = $null
+    $cmd = Get-Command outlook.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $outlookPath = $cmd.Path }
+
+    if (-not $outlookPath) {
+        $reg = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\OUTLOOK.EXE'
+        if (Test-Path $reg) {
+            $regPath = (Get-ItemProperty -Path $reg -Name '(default)' -ErrorAction SilentlyContinue).'(default)'
+            if ($regPath -and (Test-Path -LiteralPath $regPath)) { $outlookPath = $regPath }
+        }
+    }
+
+    if (-not $outlookPath) {
+        $pf = [Environment]::GetEnvironmentVariable('ProgramFiles')
+        $pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+        foreach ($base in @($pf, $pf86)) {
+            if (-not $base) { continue }
+            foreach ($rel in @(
+                'Microsoft Office\root\Office16\OUTLOOK.EXE',
+                'Microsoft Office\Office16\OUTLOOK.EXE',
+                'Microsoft Office\root\Office15\OUTLOOK.EXE',
+                'Microsoft Office\Office15\OUTLOOK.EXE',
+                'Microsoft Office\Office14\OUTLOOK.EXE'
+            )) {
+                $p = Join-Path $base $rel
+                if (Test-Path -LiteralPath $p) { $outlookPath = $p; break }
+            }
+            if ($outlookPath) { break }
+        }
+    }
+
+    if ($outlookPath) {
+        $mailto = 'mailto:' + $cfg.to + '?subject=' + [Uri]::EscapeDataString($cfg.subject) + '&body=' + [Uri]::EscapeDataString($cfg.body)
+        Start-Process -FilePath $outlookPath -ArgumentList @('/c', 'ipm.note', '/m', $mailto, '/a', $cfg.attachment)
+        Write-Output 'RESULT:EXE_ATTACHED'
+        exit 0
+    }
+} catch {
+    Write-Output "INFO:outlook.exe launch failed - $($_.Exception.Message)"
+}
+
+# Method 3 — default mail handler. Cannot attach.
+try {
+    $mailto = 'mailto:' + $cfg.to + '?subject=' + [Uri]::EscapeDataString($cfg.subject) + '&body=' + [Uri]::EscapeDataString($cfg.body)
+    Start-Process $mailto
+    Write-Output 'RESULT:MAILTO_NO_ATTACHMENT'
+    exit 0
+} catch {
+    Write-Output "RESULT:FAILED - $($_.Exception.Message)"
+    exit 1
+}
+`;
+
+/** Run the launcher and resolve with its RESULT marker. */
+function runOutlookLauncher(configPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(os.tmpdir(), `launch_outlook_${process.pid}_${Date.now()}.ps1`);
+    fs.writeFileSync(scriptPath, OUTLOOK_PS_SCRIPT, "utf-8");
+
+    // Outlook can be cold-starting, which is slow; COM only returns once the
+    // compose window is up.
+    exec(
+      `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" "${configPath}"`,
+      { timeout: 90000, windowsHide: true },
+      (error, stdout, stderr) => {
+        for (const f of [scriptPath, configPath]) {
+          try { fs.unlinkSync(f); } catch {}
+        }
+
+        const out = String(stdout || "");
+        if (out.trim()) console.log("[Launch Outlook]", out.trim());
+        if (stderr && String(stderr).trim()) console.warn("[Launch Outlook stderr]", String(stderr).trim());
+
+        const marker = out.match(/RESULT:(\S+)/);
+        if (marker) return resolve({ result: marker[1], output: out });
+
+        if (error) {
+          console.error("[Launch Outlook Error]:", error.message);
+          return resolve({ result: "FAILED", output: out, error: error.message });
+        }
+        resolve({ result: "UNKNOWN", output: out });
+      },
+    );
+  });
+}
+
+/** POST /api/payroll/launch-outlook — open an Outlook draft with the PDF payslip attached */
 router.post("/launch-outlook", async (req, res) => {
   const { employeeEmail, subject, emailBody, employeeId, period, employeeName, dept, role, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, watermarkText, earnings, deductions, gross, totalDeductions, net } = req.body;
 
   if (!employeeEmail) {
     return res.status(400).json({ message: "Recipient email is required" });
   }
+  if (process.platform !== "win32") {
+    return res.status(501).json({ message: "Outlook launch is only supported on Windows" });
+  }
 
   try {
-    const safeName = (employeeName || employeeId || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
-    const pdfFileName = `${safeName}_${employeeId || ''}_Payslip_${(period || 'Period').replace(/\s+/g, '_')}.pdf`;
-    const downloadsDir = path.join(os.homedir(), "Downloads");
-    const tempPdfPath = path.join(downloadsDir, pdfFileName);
+    const safeName = (employeeName || employeeId || "Employee").replace(/[^a-zA-Z0-9]/g, "_");
+    const pdfFileName = `${safeName}_${employeeId || ""}_Payslip_${(period || "Period").replace(/\s+/g, "_")}.pdf`;
 
-    // Generate real binary PDF Buffer
+    const downloadsDir = path.join(os.homedir(), "Downloads");
+    fs.mkdirSync(downloadsDir, { recursive: true });
+    const pdfPath = path.join(downloadsDir, pdfFileName);
+
     const pdfBuffer = await createPayslipPdfBuffer({
       employeeId,
       employeeName,
@@ -282,52 +411,47 @@ router.post("/launch-outlook", async (req, res) => {
       net,
     });
 
-    fs.writeFileSync(tempPdfPath, pdfBuffer);
+    fs.writeFileSync(pdfPath, pdfBuffer);
 
-    // Use native Windows backslash path for Outlook COM
-    const winPath = tempPdfPath.replace(/\//g, "\\");
+    const configPath = path.join(os.tmpdir(), `outlook_cfg_${process.pid}_${Date.now()}.json`);
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        to: employeeEmail,
+        subject: subject || `Payslip for ${period || ""}`,
+        body: emailBody || "",
+        attachment: path.win32.normalize(pdfPath),
+      }),
+      "utf-8",
+    );
 
-    // Write email body & subject to temp files to avoid PowerShell special char issues (₹, ', etc.)
-    const tempBodyFile = path.join(os.tmpdir(), `outlook_body_${Date.now()}.txt`);
-    const tempSubjectFile = path.join(os.tmpdir(), `outlook_subject_${Date.now()}.txt`);
-    fs.writeFileSync(tempBodyFile, emailBody || "", "utf-8");
-    fs.writeFileSync(tempSubjectFile, subject || "", "utf-8");
+    const { result, error } = await runOutlookLauncher(configPath);
+    const attached = result === "COM_ATTACHED" || result === "EXE_ATTACHED";
 
-    const bodyPath = tempBodyFile.replace(/\//g, "\\");
-    const subjectPath = tempSubjectFile.replace(/\//g, "\\");
-
-    // PowerShell script reads body & subject from temp files — no inline string escaping needed
-    const psScript = [
-      `$bodyText = [System.IO.File]::ReadAllText('${bodyPath}', [System.Text.Encoding]::UTF8)`,
-      `$subjectText = [System.IO.File]::ReadAllText('${subjectPath}', [System.Text.Encoding]::UTF8)`,
-      `$Outlook = New-Object -ComObject Outlook.Application`,
-      `$Mail = $Outlook.CreateItem(0)`,
-      `$Mail.To = '${employeeEmail}'`,
-      `$Mail.Subject = $subjectText`,
-      `$Mail.Body = $bodyText`,
-      `$Mail.Attachments.Add('${winPath}')`,
-      `$Mail.Display()`,
-      `Remove-Item '${bodyPath}' -Force -ErrorAction SilentlyContinue`,
-      `Remove-Item '${subjectPath}' -Force -ErrorAction SilentlyContinue`,
-    ].join("\n");
-
-    const psTempFile = path.join(os.tmpdir(), `launch_outlook_${Date.now()}.ps1`);
-    fs.writeFileSync(psTempFile, psScript, "utf-8");
-
-    exec(`powershell -NoProfile -ExecutionPolicy Bypass -File "${psTempFile}"`, { timeout: 15000 }, (error, stdout, stderr) => {
-      try { fs.unlinkSync(psTempFile); } catch {}
-      if (error) {
-        console.error("[Launch Outlook Error]:", error.message);
-        if (stderr) console.error("[Launch Outlook stderr]:", stderr);
-      } else {
-        console.log("[Launch Outlook] Outlook opened successfully with attachment:", winPath);
-      }
-    });
+    if (result === "FAILED" || result === "UNKNOWN") {
+      return res.status(500).json({
+        success: false,
+        attached: false,
+        pdfSaved: true,
+        filePath: pdfPath,
+        fileName: pdfFileName,
+        message:
+          `Could not open Outlook${error ? ` (${error})` : ""}. ` +
+          `The payslip was saved to ${pdfPath}.`,
+      });
+    }
 
     return res.json({
       success: true,
-      message: `Launched Outlook with attached ${pdfFileName}`,
-      filePath: tempPdfPath,
+      attached,
+      pdfSaved: true,
+      method: result,
+      filePath: pdfPath,
+      fileName: pdfFileName,
+      message: attached
+        ? `Outlook draft opened with ${pdfFileName} attached.`
+        : `Outlook composer opened. New Outlook can't accept attachments automatically — ` +
+          `drag ${pdfFileName} from your Downloads folder into the message.`,
     });
   } catch (err) {
     console.error("[Launch Outlook Handler Error]:", err);

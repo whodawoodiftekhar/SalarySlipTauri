@@ -5,9 +5,12 @@ import path from "node:path";
 const currentDir = typeof __dirname !== "undefined" ? __dirname : path.resolve("src/lib");
 
 function getLogoPath(companyLogo) {
-  if (companyLogo && fs.existsSync(companyLogo)) {
-    return companyLogo;
-  }
+  try {
+    if (companyLogo && fs.existsSync(companyLogo)) {
+      return companyLogo;
+    }
+  } catch {}
+  
   const possiblePaths = [
     path.join(currentDir, "../assets/COMM-IT.png"),
     path.join(currentDir, "../assets/logo.png"),
@@ -17,7 +20,9 @@ function getLogoPath(companyLogo) {
   ];
 
   for (const p of possiblePaths) {
-    if (fs.existsSync(p)) return p;
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {}
   }
   return null;
 }
@@ -170,8 +175,8 @@ export function createPayslipPdfBuffer({
         { name: "TDS", amount: 1500 },
       ];
 
-      const eList = earnings.length ? earnings : defaultEarnings;
-      const dList = deductions.length ? deductions : defaultDeductions;
+      const eList = Array.isArray(earnings) && earnings.length ? earnings.filter(item => item && item.name) : defaultEarnings;
+      const dList = Array.isArray(deductions) && deductions.length ? deductions.filter(item => item && item.name) : defaultDeductions;
       const rowCount = Math.max(eList.length, dList.length, 5);
 
       let tableY = headerY + 20;

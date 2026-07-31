@@ -4,11 +4,26 @@ if (typeof globalThis.crypto === "undefined") {
   globalThis.crypto = crypto;
 }
 
+// TextDecoder polyfill for fontkit/pdfkit ascii encoding compatibility in Node/pkg
+if (typeof globalThis.TextDecoder !== "undefined") {
+  const OrigTD = globalThis.TextDecoder;
+  globalThis.TextDecoder = class extends OrigTD {
+    constructor(encoding, options) {
+      if (encoding && String(encoding).toLowerCase().replace(/[^a-z0-9]/g, "") === "ascii") {
+        super("utf-8", options);
+      } else {
+        super(encoding, options);
+      }
+    }
+  };
+}
+
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import { connectDBWithRetry } from "./config/db.js";
+import { installPdfFontResolver, standardFontsAvailable } from "./lib/pdfFonts.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import catalogRoutes from "./routes/catalog.js";
 import employeeRoutes from "./routes/employees.js";
@@ -19,6 +34,9 @@ const PORT = process.env.PORT ?? 5000;
 const MONGODB_URI =
   process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/salaryslip";
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
+
+// Must run before pdfkit resolves any standard font.
+installPdfFontResolver();
 
 const app = express();
 
@@ -31,14 +49,27 @@ app.get("/api/health", (req, res) => {
     ok: true,
     dbConnected: isDbConnected,
     dbState: mongoose.connection.readyState,
+    pdfFontsAvailable: standardFontsAvailable(),
     message: isDbConnected
       ? "Connected to MongoDB"
       : "Waiting for local MongoDB..."
   });
 });
 
+/**
+ * POSTs that render/deliver a payslip from data the client already holds. They
+ * touch no collection, so a cold MongoDB must not turn them into a 503 — that
+ * used to surface in the UI as "Failed to generate PDF download."
+ */
+const DB_FREE_POST_PATHS = new Set([
+  "/generate-pdf",
+  "/launch-outlook",
+]);
+
 // Middleware to check DB connection for data endpoints
 const checkDbConnection = (req, res, next) => {
+  if (DB_FREE_POST_PATHS.has(req.path)) return next();
+
   if (mongoose.connection.readyState !== 1) {
     if (req.method === "GET") {
       res.setHeader("X-DB-Connected", "false");

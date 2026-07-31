@@ -25,6 +25,8 @@ export function SendOutlookEmailModal({
   const [copied, setCopied] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const companyLegal = company.legalName || company.name || "COMM-IT INDIA PVT. LTD.";
   const subject = `Payslip for ${period} — ${companyLegal}`;
@@ -73,98 +75,151 @@ ${companyLegal}
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleDownloadAttachment = async () => {
+  /** Payload shared by the PDF download and the Outlook launcher. */
+  const payslipPayload = () => ({
+    employeeId: emp.id,
+    employeeName: emp.name,
+    dept: emp.dept,
+    role: emp.role,
+    period,
+    emailBody: emailBodyText,
+    netPay: inr(res.net),
+    pan: emp.pan || "ABCDE1234F",
+    uan: emp.uan || "101234567890",
+    doj: emp.doj || "01-Jan-2024",
+    bankName: emp.bankName || slipDefaults.bankName,
+    bankAccountNo: emp.bankAccountNo || slipDefaults.bankAccountNo,
+    pfAccountNo: emp.pfAccountNo || slipDefaults.pfAccountNo,
+    earnings: res.earnings,
+    deductions: res.deductions,
+    gross: res.gross,
+    totalDeductions: res.totalDeductions,
+    net: res.net,
+    watermarkText: company.watermarkText,
+  });
+
+  /** Read the server's error text; the route reports the real cause as JSON. */
+  const readErrorMessage = async (response: Response, fallback: string) => {
+    try {
+      const text = await response.text();
+      if (!text) return `${fallback} (HTTP ${response.status})`;
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        if (parsed.message) return parsed.message;
+      } catch {
+        /* not JSON — fall through to the raw text */
+      }
+      return `${fallback}: ${text.slice(0, 300)}`;
+    } catch {
+      return `${fallback} (HTTP ${response.status})`;
+    }
+  };
+
+  const handleDownloadAttachment = async (): Promise<boolean> => {
+    setDownloading(true);
+    setSendError(null);
+    setSendSuccess(null);
+
     try {
       const response = await fetch(`${env.apiUrl}/payroll/generate-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: emp.id,
-          employeeName: emp.name,
-          dept: emp.dept,
-          role: emp.role,
-          period,
-          emailBody: emailBodyText,
-          netPay: inr(res.net),
-          pan: emp.pan || "ABCDE1234F",
-          uan: emp.uan || "101234567890",
-          doj: emp.doj || "01-Jan-2024",
-          bankName: emp.bankName || slipDefaults.bankName,
-          bankAccountNo: emp.bankAccountNo || slipDefaults.bankAccountNo,
-          pfAccountNo: emp.pfAccountNo || slipDefaults.pfAccountNo,
-          earnings: res.earnings,
-          deductions: res.deductions,
-          gross: res.gross,
-          totalDeductions: res.totalDeductions,
-          net: res.net,
-          watermarkText: company.watermarkText,
-        }),
+        body: JSON.stringify(payslipPayload()),
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = attachmentFileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        console.error("PDF generation returned error status:", response.status);
+      if (!response.ok) {
+        const message = await readErrorMessage(response, "Failed to generate PDF download");
+        console.error("[PDF Download] server error:", message);
+        setSendError(message);
+        return false;
       }
+
+      const pdfBlob = await response.blob();
+      if (pdfBlob.size === 0) {
+        setSendError("The server returned an empty PDF.");
+        return false;
+      }
+
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = attachmentFileName;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 1500);
+
+      setSendSuccess(`Downloaded ${attachmentFileName} to your Downloads folder.`);
+      return true;
     } catch (err) {
       console.error("[PDF Download Error]:", err);
+      setSendError(
+        `Could not reach the PDF service at ${env.apiUrl}. Make sure the backend is running.`,
+      );
+      return false;
+    } finally {
+      setDownloading(false);
     }
   };
 
   const handleDirectSend = async () => {
     setSendError(null);
     setSendSuccess(null);
+    setSending(true);
 
     try {
-      // Call backend to open Outlook with PDF auto-attached via COM automation
+      // The backend generates the PDF, saves it to Downloads, and drives Outlook
+      // via COM so the attachment lands on the draft automatically.
       const response = await fetch(`${env.apiUrl}/payroll/launch-outlook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: emp.id,
-          employeeName: emp.name,
+          ...payslipPayload(),
           employeeEmail: recipientEmail,
-          dept: emp.dept,
-          role: emp.role,
           subject,
-          emailBody: emailBodyText,
-          netPay: inr(res.net),
-          period,
-          pan: emp.pan || "ABCDE1234F",
-          uan: emp.uan || "101234567890",
-          doj: emp.doj || "01-Jan-2024",
-          bankName: emp.bankName || slipDefaults.bankName,
-          bankAccountNo: emp.bankAccountNo || slipDefaults.bankAccountNo,
-          pfAccountNo: emp.pfAccountNo || slipDefaults.pfAccountNo,
-          earnings: res.earnings,
-          deductions: res.deductions,
-          gross: res.gross,
-          totalDeductions: res.totalDeductions,
-          net: res.net,
         }),
       });
 
       if (response.ok) {
-        setSendSuccess(`Outlook opened with PDF auto-attached (${attachmentFileName})!`);
-      } else {
-        // Fallback
-        window.location.href = mailtoUrl;
-        await handleDownloadAttachment();
-        setSendError("Could not auto-attach PDF. PDF downloaded — please attach manually.");
+        const data = (await response.json()) as {
+          attached?: boolean;
+          message?: string;
+          fileName?: string;
+        };
+
+        if (data.attached) {
+          setSendSuccess(data.message || `Outlook draft opened with ${attachmentFileName} attached.`);
+        } else {
+          // Composer opened but New Outlook refuses programmatic attachments;
+          // the PDF is already in Downloads, so this is a hint, not an error.
+          setSendSuccess(
+            data.message ||
+              `Outlook composer opened. Drag ${attachmentFileName} from Downloads to attach it.`,
+          );
+        }
+        return;
       }
-    } catch {
-      // Fallback
+
+      const message = await readErrorMessage(response, "Could not open Outlook");
+      console.error("[Launch Outlook] server error:", message);
+      setSendError(message);
+    } catch (err) {
+      console.error("[Launch Outlook Error]:", err);
+      // Backend unreachable — fall back to the OS mail handler and a browser
+      // download so the user can still send the payslip manually.
       window.location.href = mailtoUrl;
-      await handleDownloadAttachment();
-      setSendError("Could not auto-attach PDF. PDF downloaded — please attach manually.");
+      const downloaded = await handleDownloadAttachment();
+      setSendError(
+        downloaded
+          ? "Could not auto-attach the PDF. It was downloaded — please attach it manually."
+          : `Could not reach the backend at ${env.apiUrl}. Make sure it is running.`,
+      );
+    } finally {
+      setSending(false);
     }
   };
 
@@ -233,10 +288,11 @@ ${companyLegal}
             </div>
             <button
               onClick={handleDownloadAttachment}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-slate-200 transition active:scale-95"
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-slate-200 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               title="Download attachment file"
             >
-              <Download size={14} /> Download File
+              <Download size={14} /> {downloading ? "Generating…" : "Download File"}
             </button>
           </div>
 
@@ -274,7 +330,7 @@ ${companyLegal}
 
         {/* Information Callout */}
         <div className="rounded-xl bg-blue-50/70 border border-blue-200/60 p-3 text-[12px] text-blue-900 leading-snug">
-          💡 <b>Outlook Integration:</b> Clicking <b>Send via Outlook</b> opens Modern Outlook with recipient, subject & body pre-filled, and auto-downloads the PDF payslip to your Downloads folder. Simply drag the PDF into the compose window to attach.
+          💡 <b>Outlook Integration:</b> <b>Send via Outlook</b> opens a draft with the recipient, subject & body pre-filled and saves the PDF to your Downloads folder. On classic Outlook desktop the PDF is attached automatically; New Outlook blocks that, so drag the PDF into the compose window.
         </div>
 
         {/* Action Buttons */}
@@ -282,9 +338,11 @@ ${companyLegal}
           {/* Direct Send via Outlook App */}
           <Button
             onClick={handleDirectSend}
-            className="flex-1 min-w-[180px] bg-[#0078D4] hover:bg-[#005A9E] text-white py-3 text-[13.5px] font-bold shadow-md shadow-[#0078D4]/25"
+            disabled={sending}
+            className="flex-1 min-w-[180px] bg-[#0078D4] hover:bg-[#005A9E] text-white py-3 text-[13.5px] font-bold shadow-md shadow-[#0078D4]/25 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <Send size={16} /> Send via Outlook & Download PDF
+            <Send size={16} />{" "}
+            {sending ? "Opening Outlook…" : "Send via Outlook & Download PDF"}
           </Button>
 
           {/* Outlook Web Compose */}
