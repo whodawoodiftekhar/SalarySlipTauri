@@ -62,7 +62,7 @@ export function SlipPreview({
   finalizing: boolean;
   onGenerate: () => void;
 }) {
-  const { company } = useSettings();
+  const { company, slipDefaults } = useSettings();
 
   return (
     <Card className="sticky top-[92px]">
@@ -88,7 +88,11 @@ export function SlipPreview({
         <Meta label="Employee" value={emp.name} />
         <Meta label="Designation" value={emp.role} />
         <Meta label="Code" value={emp.id} />
+        <Meta label="Bank Name" value={emp.bankName || slipDefaults.bankName} />
+        <Meta label="Department" value={emp.dept} />
+        <Meta label="Bank Account" value={emp.bankAccountNo || slipDefaults.bankAccountNo} />
         <Meta label="Days payable" value={`${dpay} / ${dim}`} />
+        <Meta label="PF Account" value={emp.pfAccountNo || slipDefaults.pfAccountNo} />
       </div>
 
       <div className="mt-[14px] grid grid-cols-2">

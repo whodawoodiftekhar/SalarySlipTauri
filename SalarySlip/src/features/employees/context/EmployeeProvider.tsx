@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useRoster } from "@/features/payroll/hooks/useRoster";
-import type { Employee } from "@/shared/types";
+import type { Employee, RosterEntry } from "@/shared/types";
 import { employeeService } from "../services/employeeService";
 import type { NewEmployeeDto, UpdateEmployeeDto } from "../types";
 import { EmployeeContext, type EmployeeContextValue } from "./employeeContext";
@@ -21,17 +21,42 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
   const [removed, setRemoved] = useState<string[]>([]);
 
   const employees = useMemo(() => {
-    const byId = new Map<string, Employee>();
-    for (const e of roster) byId.set(e.id, e);
-    for (const e of created) byId.set(e.id, e);
-    for (const id of removed) byId.delete(id);
-    return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+    const list: Employee[] = [];
+    const seen = new Set<string>();
+    // Unshift newly created first
+    for (const e of created) {
+      if (!removed.includes(e.id) && !seen.has(e.id)) {
+        list.push(e);
+        seen.add(e.id);
+      }
+    }
+    // Then add roster items in backend's newest-first order
+    for (const e of roster) {
+      if (!removed.includes(e.id) && !seen.has(e.id)) {
+        list.push(e);
+        seen.add(e.id);
+      }
+    }
+    return list;
   }, [roster, created, removed]);
 
-  const visibleRoster = useMemo(
-    () => roster.filter((e) => !removed.includes(e.id)),
-    [roster, removed],
-  );
+  const visibleRoster = useMemo(() => {
+    const list: RosterEntry[] = [];
+    const seen = new Set<string>();
+    for (const e of created) {
+      if ("net" in e && !removed.includes(e.id) && !seen.has(e.id)) {
+        list.push(e as RosterEntry);
+        seen.add(e.id);
+      }
+    }
+    for (const e of roster) {
+      if (!removed.includes(e.id) && !seen.has(e.id)) {
+        list.push(e);
+        seen.add(e.id);
+      }
+    }
+    return list;
+  }, [roster, created, removed]);
 
   const addEmployee = useCallback(
     async (dto: NewEmployeeDto) => {

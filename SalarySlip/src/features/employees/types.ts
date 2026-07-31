@@ -15,4 +15,7 @@ export interface EmployeeFormState {
   special: string;
   onsite: string;
   tds: string;
+  bankName: string;
+  bankAccountNo: string;
+  pfAccountNo: string;
 }

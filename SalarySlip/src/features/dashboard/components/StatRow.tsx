@@ -1,66 +1,86 @@
-import { FileCheck2, TrendingDown, Users, Wallet } from "lucide-react";
+import { DollarSign, TrendingDown, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/shared/lib/cn";
 import { inr0 } from "@/shared/lib/format";
 import type { RosterEntry } from "@/shared/types";
 
-type Tone = "ink" | "earn" | "deduct" | "accent";
-
-const TONE: Record<Tone, string> = {
-  ink: "bg-ink-soft text-ink",
-  earn: "bg-earn-soft text-earn",
-  deduct: "bg-deduct-soft text-deduct",
-  accent: "bg-accent-soft text-accent",
-};
-
-interface Stat {
+interface StatItem {
   icon: LucideIcon;
   label: string;
-  value: string | number;
-  tone: Tone;
+  value: string;
+  subtext: string;
+  bgGradient: string;
+  iconBg: string;
+  iconColor: string;
 }
 
 export function StatRow({ roster }: { roster: RosterEntry[] }) {
+  const totalGross = roster.reduce((s, e) => s + e.gross, 0);
   const totalNet = roster.reduce((s, e) => s + e.net, 0);
   const totalDed = roster.reduce((s, e) => s + e.totalDeductions, 0);
+  const deptCount = new Set(roster.map((e) => e.dept)).size;
 
-  const stats: Stat[] = [
-    { icon: Users, label: "Employees", value: roster.length, tone: "ink" },
-    { icon: Wallet, label: "Net payroll", value: `₹${inr0(totalNet)}`, tone: "earn" },
+  const stats: StatItem[] = [
     {
-      icon: TrendingDown,
-      label: "Total deductions",
-      value: `₹${inr0(totalDed)}`,
-      tone: "deduct",
+      icon: Users,
+      label: "Total Employees",
+      value: String(roster.length),
+      subtext: `${deptCount} Departments`,
+      bgGradient: "from-blue-50/50 to-indigo-50/30",
+      iconBg: "bg-blue-600/10",
+      iconColor: "text-blue-600",
     },
     {
-      icon: FileCheck2,
-      label: "Payslips ready",
-      value: `${roster.length} / ${roster.length}`,
-      tone: "accent",
+      icon: DollarSign,
+      label: "Gross Earnings",
+      value: `₹${inr0(totalGross)}`,
+      subtext: "Before deductions",
+      bgGradient: "from-emerald-50/50 to-teal-50/30",
+      iconBg: "bg-emerald-600/10",
+      iconColor: "text-emerald-600",
+    },
+    {
+      icon: TrendingDown,
+      label: "Total Deductions",
+      value: `₹${inr0(totalDed)}`,
+      subtext: "PF, PT, TDS combined",
+      bgGradient: "from-rose-50/50 to-red-50/30",
+      iconBg: "bg-rose-600/10",
+      iconColor: "text-rose-600",
+    },
+    {
+      icon: Wallet,
+      label: "Net Payroll Payout",
+      value: `₹${inr0(totalNet)}`,
+      subtext: "Final take-home total",
+      bgGradient: "from-purple-50/50 to-indigo-50/30",
+      iconBg: "bg-purple-600/10",
+      iconColor: "text-purple-600",
     },
   ];
 
   return (
-    <div className="mb-5 grid grid-cols-4 gap-4 max-tab:grid-cols-2 max-mob:gap-3">
+    <div className="mb-6 grid grid-cols-4 gap-4 max-tab:grid-cols-2 max-mob:grid-cols-1">
       {stats.map((s) => (
         <div
           key={s.label}
-          className="flex items-center gap-[13px] rounded-[14px] border border-line bg-white p-4"
+          className="relative overflow-hidden rounded-2xl border border-line bg-white p-4.5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
         >
-          <span
-            className={cn(
-              "grid h-10 w-10 flex-none place-items-center rounded-[11px]",
-              TONE[s.tone],
-            )}
-          >
-            <s.icon size={16} />
-          </span>
-          <div>
-            <small className="mb-[3px] block text-[12px] text-ash">{s.label}</small>
-            <b className="text-[20px] font-bold tracking-[-0.01em] tabular-nums">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-semibold tracking-wide text-ash uppercase">
+              {s.label}
+            </span>
+            <div className={`grid h-9 w-9 place-items-center rounded-xl ${s.iconBg} ${s.iconColor}`}>
+              <s.icon size={18} />
+            </div>
+          </div>
+
+          <div className="mt-2.5">
+            <b className="text-[22px] font-extrabold tracking-tight text-ink tabular-nums block">
               {s.value}
             </b>
+            <span className="mt-1 block text-[11.5px] font-medium text-mist">
+              {s.subtext}
+            </span>
           </div>
         </div>
       ))}

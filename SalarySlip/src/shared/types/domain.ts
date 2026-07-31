@@ -42,6 +42,9 @@ export interface Employee {
   special: number;
   tds: number;
   onsite: number;
+  bankName?: string;
+  bankAccountNo?: string;
+  pfAccountNo?: string;
 }
 
 /** The fields the default salary structure is generated from. */

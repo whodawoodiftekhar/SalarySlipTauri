@@ -1,10 +1,11 @@
-import { Loader2, Plus, X } from "lucide-react";
+import { Landmark, Loader2, Plus, User, Wallet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { payrollService } from "@/features/payroll/services/payrollService";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button, IconButton } from "@/shared/components/ui/Button";
-import { Field, FIELD_INPUT, FormSection } from "@/shared/components/ui/Field";
+import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
+import { LOGO } from "@/shared/lib/branding";
 import { inr, num } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
 import { employeeService } from "../services/employeeService";
@@ -19,7 +20,7 @@ export function AddEmployeeModal({
   onCancel: () => void;
   onSave: (employee: Employee) => void;
 }) {
-  const { departments } = useSettings();
+  const { departments, company, payPeriod } = useSettings();
 
   const [f, setF] = useState<EmployeeFormState>({
     name: "",
@@ -30,6 +31,9 @@ export function AddEmployeeModal({
     special: "",
     onsite: "",
     tds: "",
+    bankName: "",
+    bankAccountNo: "",
+    pfAccountNo: "",
   });
 
   // the next free code is assigned by the API, not guessed in the browser
@@ -92,107 +96,250 @@ export function AddEmployeeModal({
       special: num(f.special),
       onsite: num(f.onsite),
       tds: num(f.tds),
+      bankName: f.bankName.trim(),
+      bankAccountNo: f.bankAccountNo.trim(),
+      pfAccountNo: f.pfAccountNo.trim(),
     });
 
   return (
     <Overlay onClose={onCancel}>
       <div
-        className="w-full max-w-[460px] rounded-2xl bg-white p-[22px] shadow-[0_24px_70px_rgba(0,0,0,0.4)] max-mob:max-w-full"
+        className="w-full max-w-[680px] max-h-[90vh] flex flex-col rounded-2xl bg-white p-6 shadow-[0_24px_70px_rgba(0,0,0,0.35)] max-mob:max-w-full"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="m-0 text-[17px] font-[650]">Add employee &amp; salary</h3>
+        {/* Header */}
+        <div className="mb-5 flex items-start justify-between border-b border-line pb-4">
+          <div>
+            <h3 className="m-0 text-[19px] font-bold text-ink">Add New Employee</h3>
+            <p className="mt-1 text-[13px] text-mist">
+              Enter personal details, bank accounts, and monthly salary configuration.
+            </p>
+          </div>
           <IconButton onClick={onCancel} aria-label="Close">
-            <X size={17} />
+            <X size={18} />
           </IconButton>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 max-xs:grid-cols-1">
-          <Field label="Full name">
-            <input
-              className={FIELD_INPUT}
-              value={f.name}
-              onChange={set("name")}
-              placeholder="e.g. Priya Sharma"
-            />
-          </Field>
-          <Field label="Employee code">
-            <input className={FIELD_INPUT} value={f.id} onChange={set("id")} />
-          </Field>
-          <Field label="Department">
-            <select className={FIELD_INPUT} value={f.dept} onChange={set("dept")}>
-              {departments.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Designation">
-            <input
-              className={FIELD_INPUT}
-              value={f.role}
-              onChange={set("role")}
-              placeholder="e.g. Software Engineer"
-            />
-          </Field>
-
-          <FormSection>Salary components — monthly ₹</FormSection>
-
-          <Field label="Basic salary">
-            <input
-              className={FIELD_INPUT}
-              type="number"
-              value={f.basic}
-              onChange={set("basic")}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Special allowance">
-            <input
-              className={FIELD_INPUT}
-              type="number"
-              value={f.special}
-              onChange={set("special")}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Onsite incentive">
-            <input
-              className={FIELD_INPUT}
-              type="number"
-              value={f.onsite}
-              onChange={set("onsite")}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="TDS (monthly)">
-            <input
-              className={FIELD_INPUT}
-              type="number"
-              value={f.tds}
-              onChange={set("tds")}
-              placeholder="0"
-            />
-          </Field>
-        </div>
-
-        <div className="mt-[14px] rounded-[9px] bg-paper px-3 py-2.5 text-[11.5px] leading-[1.55] text-ash">
-          HRA, Transport, Medical, PF and Professional Tax are attached
-          automatically from the salary structure the server assigns. Fine-tune
-          everything on the next screen.
-        </div>
-
-        {valid && preview?.key === seedKey && (
-          <div className="mt-3 flex items-center justify-between rounded-[10px] border border-line px-[14px] py-3">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-ash">
-              Estimated net / month
-            </span>
-            <b className="font-mono text-[18px] tabular-nums text-earn">
-              ₹ {inr(preview.result.net)}
-            </b>
+        {/* Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
+          {/* Section 1: General Info */}
+          <div className="rounded-xl border border-line bg-paper/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[13.5px] font-bold text-ink">
+              <User size={16} className="text-accent" /> Personal &amp; Work Details
+            </div>
+            <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
+              <Field label="Full Name *">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.name}
+                  onChange={set("name")}
+                  placeholder="e.g. Priya Sharma"
+                />
+              </Field>
+              <Field label="Employee Code *">
+                <input className={FIELD_INPUT} value={f.id} onChange={set("id")} />
+              </Field>
+              <Field label="Department">
+                <select className={FIELD_INPUT} value={f.dept} onChange={set("dept")}>
+                  {departments.map((d) => (
+                    <option key={d}>{d}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Designation *">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.role}
+                  onChange={set("role")}
+                  placeholder="e.g. Senior Software Engineer"
+                />
+              </Field>
+            </div>
           </div>
-        )}
 
-        <div className="mt-[18px] flex justify-end gap-2.5">
+          {/* Section 2: Banking & PF Details */}
+          <div className="rounded-xl border border-line bg-paper/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[13.5px] font-bold text-ink">
+              <Landmark size={16} className="text-accent" /> Banking &amp; PF Accounts
+            </div>
+            <div className="grid grid-cols-3 gap-3.5 max-xs:grid-cols-1">
+              <Field label="Bank Name">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.bankName}
+                  onChange={set("bankName")}
+                  placeholder="e.g. HDFC Bank"
+                />
+              </Field>
+              <Field label="Bank Account No.">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.bankAccountNo}
+                  onChange={set("bankAccountNo")}
+                  placeholder="Account number"
+                />
+              </Field>
+              <Field label="PF Account No.">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.pfAccountNo}
+                  onChange={set("pfAccountNo")}
+                  placeholder="PF account number"
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Section 3: Salary Components */}
+          <div className="rounded-xl border border-line bg-paper/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-[13.5px] font-bold text-ink">
+              <Wallet size={16} className="text-accent" /> Monthly Salary Setup (₹)
+            </div>
+            <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
+              <Field label="Basic Salary *">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.basic}
+                  onChange={set("basic")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Special Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.special}
+                  onChange={set("special")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Onsite Incentive">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.onsite}
+                  onChange={set("onsite")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="TDS (Monthly Deduction)">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.tds}
+                  onChange={set("tds")}
+                  placeholder="0"
+                />
+              </Field>
+            </div>
+
+            <p className="mt-3 text-[11.5px] leading-relaxed text-mist">
+              * HRA, Transport, Medical, PF, and Professional Tax will be attached automatically based on default company structure.
+            </p>
+          </div>
+
+          {/* Exact Payslip Card Preview matching Image */}
+          {valid && preview?.key === seedKey && (
+            <div className="rounded-xl border border-line bg-white p-5 shadow-sm space-y-3.5">
+              {/* Logo & Company Header */}
+              <div className="flex items-center gap-3 border-b border-line pb-3.5">
+                <img
+                  src={LOGO}
+                  alt={company.name}
+                  className="h-[30px] w-auto flex-none"
+                />
+                <div>
+                  <b className="text-[13px] font-bold text-ink block">{company.legalName}</b>
+                  <small className="block text-[11.5px] text-ash">
+                    {company.addressShort}
+                  </small>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="text-center text-[12px] font-bold uppercase tracking-[0.06em] text-ink">
+                PAY SLIP — {payPeriod}
+              </div>
+
+              {/* Employee Meta Grid */}
+              <div className="grid grid-cols-2 gap-x-5 gap-y-2 border-b border-line pb-3.5 text-[12px]">
+                <div className="flex justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-ash">EMPLOYEE</span>
+                  <b className="text-right text-ink font-semibold">{f.name || "—"}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-ash">DESIGNATION</span>
+                  <b className="text-right text-ink font-semibold">{f.role || "—"}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-ash">CODE</span>
+                  <b className="text-right text-ink font-semibold">{f.id || "—"}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[11px] uppercase tracking-wider text-ash">DAYS PAYABLE</span>
+                  <b className="text-right text-ink font-semibold">30 / 30</b>
+                </div>
+              </div>
+
+              {/* Earnings & Deductions Columns */}
+              <div className="grid grid-cols-2 pt-1">
+                {/* Earnings */}
+                <div className="pr-3 border-r border-line space-y-1.5">
+                  <div className="mb-2 border-b border-line pb-1.5 text-[11px] font-bold uppercase tracking-[0.07em] text-earn">
+                    EARNINGS
+                  </div>
+                  {preview.result.earnings.map((e) => (
+                    <div key={e.id} className="flex justify-between text-[12.5px]">
+                      <span className="text-ash">{e.name}</span>
+                      <b className="font-mono font-semibold tabular-nums text-ink">{inr(e.amount)}</b>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Deductions */}
+                <div className="pl-3 space-y-1.5">
+                  <div className="mb-2 border-b border-line pb-1.5 text-[11px] font-bold uppercase tracking-[0.07em] text-deduct">
+                    DEDUCTIONS
+                  </div>
+                  {preview.result.deductions.map((d) => (
+                    <div key={d.id} className="flex justify-between text-[12.5px]">
+                      <span className="text-ash">{d.name}</span>
+                      <b className="font-mono font-semibold tabular-nums text-ink">{inr(d.amount)}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-[13px]">
+                <div className="flex justify-between">
+                  <span className="text-ash">Gross (A)</span>
+                  <b className="font-mono tabular-nums text-earn font-bold">{inr(preview.result.gross)}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ash">Deductions (B)</span>
+                  <b className="font-mono tabular-nums text-deduct font-bold">
+                    {inr(preview.result.totalDeductions)}
+                  </b>
+                </div>
+              </div>
+
+              {/* Net Salary Dark Pill */}
+              <div className="flex items-center justify-between rounded-xl bg-ink px-4 py-3.5 text-white">
+                <span className="text-[10.5px] uppercase tracking-[0.1em] opacity-70">
+                  NET SALARY
+                </span>
+                <div className="font-mono text-[22px] font-bold tracking-[-0.01em] tabular-nums text-white">
+                  ₹ {inr(preview.result.net)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="mt-5 flex items-center justify-end gap-3 border-t border-line pt-4">
           <Button variant="overlayGhost" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
@@ -202,7 +349,7 @@ export function AddEmployeeModal({
             ) : (
               <Plus size={15} />
             )}
-            {saving ? "Saving…" : "Add & open payroll"}
+            {saving ? "Saving…" : "Add & Open Payroll"}
           </Button>
         </div>
       </div>

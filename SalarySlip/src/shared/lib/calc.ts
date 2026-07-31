@@ -91,3 +91,50 @@ export function compute(
     factor,
   };
 }
+
+/** Dynamically builds an employee salary structure using components directly from the database catalog. */
+export const makeStructure = (
+  e: Record<string, any> = {},
+  dbComponents: any[] = [],
+): SalaryComponent[] => {
+  return dbComponents.map((comp) => {
+    const codeUpper = (comp.code || comp.id || "").toUpperCase();
+    const isBasic = codeUpper === "BASIC" || (comp.name && comp.name.toLowerCase().includes("basic"));
+    const group = (comp.group || "").toLowerCase().includes("deduct") ? "deduction" : "earning";
+    const id = (comp.id || comp.code || comp.name || "").toLowerCase().replace(/\s+/g, "_");
+
+    // Determine calculation method directly from DB component 'calc' field
+    let calc: CalcMethod = "flat";
+    const cStr = String(comp.calc || "").toLowerCase();
+    if (cStr.includes("pf") || cStr.includes("statutory")) {
+      calc = "statutory_pf";
+    } else if (cStr.includes("%") || cStr.includes("pct")) {
+      calc = "pct_basic";
+    } else {
+      calc = "flat";
+    }
+
+    // Determine component value dynamically from input or DB catalog component
+    let value = 0;
+    if (isBasic) {
+      value = num(e?.basic);
+    } else if (id in (e || {})) {
+      value = num(e[id]);
+    } else if (comp.code && comp.code.toLowerCase() in (e || {})) {
+      value = num(e[comp.code.toLowerCase()]);
+    } else {
+      const extractedPct = typeof comp.calc === "string" ? num(comp.calc.replace(/[^0-9.]/g, "")) : 0;
+      value = num(comp.value ?? (calc === "pct_basic" ? extractedPct : 0));
+    }
+
+    return {
+      id,
+      name: comp.name,
+      group: group as "earning" | "deduction",
+      calc,
+      value,
+      prorate: group === "earning",
+      ...(isBasic ? { isBasic: true } : {}),
+    };
+  });
+};

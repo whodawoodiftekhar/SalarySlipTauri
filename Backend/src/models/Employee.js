@@ -14,6 +14,9 @@ const employeeSchema = new mongoose.Schema(
     special: { type: Number, default: 0, min: 0 },
     tds: { type: Number, default: 0, min: 0 },
     onsite: { type: Number, default: 0, min: 0 },
+    bankName: { type: String, default: "", trim: true },
+    bankAccountNo: { type: String, default: "", trim: true },
+    pfAccountNo: { type: String, default: "", trim: true },
   },
   {
     timestamps: true,

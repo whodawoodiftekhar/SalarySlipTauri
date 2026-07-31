@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  ReceiptText,
   SlidersHorizontal,
   Users,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import type { NavItem } from "@/shared/types";
 export const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/" },
   { id: "employees", label: "Employees", icon: Users, path: "/employees" },
-  { id: "payroll", label: "Run payroll", icon: ReceiptText, path: "/payroll" },
   {
     id: "components",
     label: "Components",

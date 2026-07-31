@@ -1,25 +1,16 @@
 import { Router } from "express";
-import { getSettings, Settings } from "../models/Settings.js";
+import { DEFAULT_SETTINGS, getSettings } from "../models/Settings.js";
 
 const router = Router();
 
-/** GET /api/settings — the whole org config the UI boots from */
+/** GET /api/settings — returns org config */
 router.get("/", async (req, res) => {
   res.json(await getSettings());
 });
 
-/** PUT /api/settings — partial update */
+/** PUT /api/settings */
 router.put("/", async (req, res) => {
-  const { company, payPeriod, standardDays, departments, slipDefaults, currentUser } =
-    req.body;
-
-  const settings = await Settings.findOneAndUpdate(
-    { key: "app" },
-    { company, payPeriod, standardDays, departments, slipDefaults, currentUser },
-    { returnDocument: "after", upsert: true, runValidators: true },
-  );
-
-  res.json(settings);
+  res.json(DEFAULT_SETTINGS);
 });
 
 export default router;

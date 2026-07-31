@@ -1,4 +1,4 @@
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { Avatar } from "@/shared/components/ui/Avatar";
 import { DeptTag } from "@/shared/components/ui/Badge";
 import { Button } from "@/shared/components/ui/Button";
@@ -13,11 +13,13 @@ export function EmployeeTable({
   rows,
   busy,
   onSelect,
+  onEdit,
   onDelete,
 }: {
   rows: RosterEntry[];
   busy: boolean;
   onSelect: (employee: RosterEntry) => void;
+  onEdit?: (employee: RosterEntry) => void;
   onDelete: (employee: RosterEntry) => void;
 }) {
   return (
@@ -55,8 +57,19 @@ export function EmployeeTable({
                 <Button variant="ghost" onClick={() => onSelect(e)}>
                   Generate <ChevronRight size={14} />
                 </Button>
+                {onEdit && (
+                  <button
+                    className="grid place-items-center rounded-lg border-none bg-transparent p-1.5 text-ash hover:bg-paper hover:text-ink disabled:opacity-40 cursor-pointer"
+                    onClick={() => onEdit(e)}
+                    disabled={busy}
+                    aria-label={`Edit ${e.name}`}
+                    title="Edit employee profile"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                )}
                 <button
-                  className="grid place-items-center rounded-lg border-none bg-transparent p-1.5 text-danger hover:bg-deduct-soft disabled:opacity-40"
+                  className="grid place-items-center rounded-lg border-none bg-transparent p-1.5 text-danger hover:bg-deduct-soft disabled:opacity-40 cursor-pointer"
                   onClick={() => onDelete(e)}
                   disabled={busy}
                   aria-label={`Delete ${e.name}`}

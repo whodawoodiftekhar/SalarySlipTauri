@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ComponentsPage from "@/features/catalog/ComponentsPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import EmployeesPage from "@/features/employees/EmployeesPage";
+import AddEmployeePage from "@/features/employees/AddEmployeePage";
 import { EmployeeProvider } from "@/features/employees/context/EmployeeProvider";
 import PayrollPage from "@/features/payroll/PayrollPage";
 import { SettingsProvider } from "@/features/settings/context/SettingsProvider";
@@ -17,6 +18,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="employees" element={<EmployeesPage />} />
+              <Route path="employees/new" element={<AddEmployeePage />} />
               <Route path="payroll/:employeeId" element={<PayrollPage />} />
               <Route
                 path="payroll"

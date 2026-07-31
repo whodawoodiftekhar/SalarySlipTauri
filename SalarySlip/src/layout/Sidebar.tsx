@@ -1,20 +1,13 @@
-import { NavLink, useLocation, useMatch } from "react-router-dom";
-import { useEmployees } from "@/features/employees/hooks/useEmployees";
+import { NavLink, useLocation } from "react-router-dom";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { LOGO } from "@/shared/lib/branding";
 import { cn } from "@/shared/lib/cn";
 import { matchNav, NAV } from "./navigation";
 
 export function Sidebar() {
-  const { employees } = useEmployees();
   const { company, currentUser } = useSettings();
   const { pathname } = useLocation();
-  const payrollMatch = useMatch("/payroll/:employeeId");
   const active = matchNav(pathname);
-
-  // "Run payroll" keeps you on the employee you're viewing, else picks the
-  // first in the roster; with an empty roster it falls back to the picker.
-  const payrollTarget = payrollMatch?.params.employeeId ?? employees[0]?.id;
 
   return (
     <aside
@@ -38,13 +31,7 @@ export function Sidebar() {
         {NAV.map((n) => (
           <NavLink
             key={n.id}
-            to={
-              n.id === "payroll"
-                ? payrollTarget
-                  ? `/payroll/${payrollTarget}`
-                  : "/employees"
-                : n.path
-            }
+            to={n.path}
             className={cn(
               "flex items-center gap-[11px] rounded-[9px] px-3 py-[10px] text-left font-medium",
               "max-mob:whitespace-nowrap max-mob:px-[11px] max-mob:py-2",

@@ -18,7 +18,7 @@ router.get("/roster", async (req, res) => {
     const settings = await getSettings();
     const days = Number(req.query.days ?? settings?.standardDays ?? 30);
 
-    const employees = await Employee.find().sort({ id: 1 }).lean();
+    const employees = await Employee.find().sort({ _id: -1 }).lean();
     if (!employees || !Array.isArray(employees) || employees.length === 0) {
       return res.json([]);
     }

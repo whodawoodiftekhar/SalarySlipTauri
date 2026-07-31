@@ -72,15 +72,46 @@ export function compute(components, daysInMonth, daysPayable) {
   };
 }
 
-/** The default structure attached to every new employee. */
-export const makeStructure = (e) => [
-  { id: "basic", name: "Basic Salary", group: "earning", calc: "flat", value: e.basic, prorate: true, isBasic: true },
-  { id: "hra", name: "HRA", group: "earning", calc: "pct_basic", value: 50, prorate: true },
-  { id: "transport", name: "Transport Allowance", group: "earning", calc: "flat", value: 1600, prorate: true },
-  { id: "special", name: "Special Allowance", group: "earning", calc: "flat", value: e.special ?? 0, prorate: true },
-  { id: "medical", name: "Medical Reimbursement", group: "earning", calc: "flat", value: 1250, prorate: false },
-  { id: "onsite", name: "Onsite Incentive", group: "earning", calc: "flat", value: e.onsite ?? 0, prorate: false },
-  { id: "pf", name: "PF", group: "deduction", calc: "statutory_pf", value: 0, prorate: true },
-  { id: "pt", name: "Professional Tax", group: "deduction", calc: "flat", value: 200, prorate: false },
-  { id: "tds", name: "TDS", group: "deduction", calc: "flat", value: e.tds ?? 0, prorate: false },
-];
+/** Dynamically builds an employee salary structure using components directly from the database catalog. */
+export const makeStructure = (e, dbComponents = []) => {
+  return dbComponents.map((comp) => {
+    const codeUpper = (comp.code || comp.id || "").toUpperCase();
+    const isBasic = codeUpper === "BASIC" || (comp.name && comp.name.toLowerCase().includes("basic"));
+    const group = (comp.group || "").toLowerCase().includes("deduct") ? "deduction" : "earning";
+    const id = (comp.id || comp.code || comp.name || "").toLowerCase().replace(/\s+/g, "_");
+
+    // Determine calculation method directly from DB component 'calc' field
+    let calc = "flat";
+    const cStr = String(comp.calc || "").toLowerCase();
+    if (cStr.includes("pf") || cStr.includes("statutory")) {
+      calc = "statutory_pf";
+    } else if (cStr.includes("%") || cStr.includes("pct")) {
+      calc = "pct_basic";
+    } else {
+      calc = "flat";
+    }
+
+    // Determine component value dynamically from input or DB catalog component
+    let value = 0;
+    if (isBasic) {
+      value = num(e?.basic);
+    } else if (id in (e || {})) {
+      value = num(e[id]);
+    } else if (comp.code && comp.code.toLowerCase() in (e || {})) {
+      value = num(e[comp.code.toLowerCase()]);
+    } else {
+      const extractedPct = typeof comp.calc === "string" ? num(comp.calc.replace(/[^0-9.]/g, "")) : 0;
+      value = num(comp.value ?? (calc === "pct_basic" ? extractedPct : 0));
+    }
+
+    return {
+      id,
+      name: comp.name,
+      group,
+      calc,
+      value,
+      prorate: group === "earning",
+      ...(isBasic ? { isBasic: true } : {}),
+    };
+  });
+};

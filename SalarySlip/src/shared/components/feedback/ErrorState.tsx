@@ -1,6 +1,9 @@
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 
+
+
+
 export function ErrorState({
   title = "Could not load this data",
   error,

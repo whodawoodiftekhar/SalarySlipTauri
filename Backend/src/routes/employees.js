@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Employee } from "../models/Employee.js";
 import { Payslip } from "../models/Payslip.js";
+import { SalaryComponent } from "../models/SalaryComponent.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
 import { makeStructure } from "../lib/calc.js";
 
@@ -8,7 +9,7 @@ const router = Router();
 
 /** GET /api/employees — full roster */
 router.get("/", async (req, res) => {
-  const employees = await Employee.find().sort({ id: 1 });
+  const employees = await Employee.find().sort({ createdAt: -1, id: -1 });
   res.json(employees);
 });
 
@@ -33,7 +34,7 @@ router.get("/:id", async (req, res) => {
 
 /** POST /api/employees — create, and attach the default salary structure */
 router.post("/", async (req, res) => {
-  const { id, name, dept, role, basic, special, tds, onsite } = req.body;
+  const { id, name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo } = req.body;
 
   const employee = await Employee.create({
     id,
@@ -44,11 +45,16 @@ router.post("/", async (req, res) => {
     special,
     tds,
     onsite,
+    bankName,
+    bankAccountNo,
+    pfAccountNo,
   });
+
+  const dbCatalog = await SalaryComponent.find().lean();
 
   await SalaryStructure.create({
     employeeId: employee.id,
-    components: makeStructure(employee),
+    components: makeStructure(employee, dbCatalog),
   });
 
   res.status(201).json(employee);
@@ -56,11 +62,11 @@ router.post("/", async (req, res) => {
 
 /** PUT /api/employees/:id — update the employee record */
 router.put("/:id", async (req, res) => {
-  const { name, dept, role, basic, special, tds, onsite } = req.body;
+  const { name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo } = req.body;
 
   const employee = await Employee.findOneAndUpdate(
     { id: req.params.id },
-    { name, dept, role, basic, special, tds, onsite },
+    { name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo },
     { returnDocument: "after", runValidators: true },
   );
 
@@ -89,9 +95,10 @@ router.get("/:id/salary-structure", async (req, res) => {
 
   let structure = await SalaryStructure.findOne({ employeeId: employee.id });
   if (!structure) {
+    const dbCatalog = await SalaryComponent.find().lean();
     structure = await SalaryStructure.create({
       employeeId: employee.id,
-      components: makeStructure(employee),
+      components: makeStructure(employee, dbCatalog),
     });
   }
 

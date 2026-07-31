@@ -11,7 +11,6 @@ import { Employee } from "./models/Employee.js";
 import { Payslip } from "./models/Payslip.js";
 import { SalaryComponent } from "./models/SalaryComponent.js";
 import { SalaryStructure } from "./models/SalaryStructure.js";
-import { getSettings } from "./models/Settings.js";
 
 const EMPLOYEES = [
   { id: "C11020", name: "Aisha Rahman", dept: "IT", role: "Senior Software Engineer", basic: 90000, special: 42000, tds: 12000, onsite: 0 },
@@ -49,12 +48,8 @@ await SalaryStructure.insertMany(
 );
 await SalaryComponent.insertMany(CATALOG);
 
-// creates the org settings doc from schema defaults if it doesn't exist yet
-const settings = await getSettings();
-
 console.log(
-  `Seeded ${EMPLOYEES.length} employees, ${CATALOG.length} catalog components, ` +
-    `settings for ${settings.company.name}.`,
+  `Seeded ${EMPLOYEES.length} employees, ${CATALOG.length} catalog components.`,
 );
 
 await disconnectDB();

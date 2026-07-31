@@ -19,6 +19,23 @@ import { SlipPreview } from "./SlipPreview";
 const DAY_INPUT =
   "w-[92px] rounded-lg border border-line px-[9px] py-[7px] tabular-nums";
 
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const YEARS = [2025, 2026, 2027];
+const PERIOD_OPTIONS = YEARS.flatMap((y) => MONTHS.map((m) => `${m} ${y}`));
+
 export function PayrollEditor({
   emp,
   period,
@@ -27,6 +44,9 @@ export function PayrollEditor({
   period: string;
 }) {
   const navigate = useNavigate();
+  const [selectedPeriod, setSelectedPeriod] = useState(
+    PERIOD_OPTIONS.includes(period) ? period : period || "Jul 2026",
+  );
   const {
     comps,
     res,
@@ -53,7 +73,7 @@ export function PayrollEditor({
     try {
       await payrollService.finalize({
         employeeId: emp.id,
-        period,
+        period: selectedPeriod,
         daysInMonth: num(dim),
         daysPayable: num(dpay),
         components: comps,
@@ -109,7 +129,24 @@ export function PayrollEditor({
                 {emp.id} · {emp.role} · {emp.dept}
               </small>
             </div>
-            <div className="flex gap-[10px]">
+            <div className="flex gap-[10px] items-center">
+              <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
+                Pay Period
+                <select
+                  className="rounded-lg border border-line bg-white px-2.5 py-[7px] text-[13px] font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                >
+                  {!PERIOD_OPTIONS.includes(selectedPeriod) && (
+                    <option value={selectedPeriod}>{selectedPeriod}</option>
+                  )}
+                  {PERIOD_OPTIONS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
                 Days in month
                 <input
@@ -164,7 +201,7 @@ export function PayrollEditor({
             res={res}
             dim={dim}
             dpay={dpay}
-            period={period}
+            period={selectedPeriod}
             finalizing={finalizing}
             onGenerate={finalize}
           />
@@ -184,7 +221,7 @@ export function PayrollEditor({
           res={res}
           dim={num(dim)}
           dpay={num(dpay)}
-          period={period}
+          period={selectedPeriod}
           onClose={() => setGen(false)}
         />
       )}
