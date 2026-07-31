@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Database, RefreshCw, AlertTriangle } from "lucide-react";
+import { Database, RefreshCw, AlertTriangle, Server } from "lucide-react";
 import { env } from "@/config/env";
 
 export function useDbStatus() {
@@ -74,6 +74,120 @@ export function DbStatusBadge() {
   );
 }
 
+export function useBackendStatus() {
+  const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+
+  const checkStatus = async () => {
+    try {
+      const res = await fetch(`${env.apiUrl}/health`);
+      if (res.ok) {
+        setBackendConnected(true);
+      } else {
+        setBackendConnected(false);
+      }
+    } catch {
+      setBackendConnected(false);
+    }
+  };
+
+  const restartBackend = async () => {
+    setIsStarting(true);
+    try {
+      if (
+        typeof window !== "undefined" &&
+        ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+      ) {
+        const core = await import("@tauri-apps/api/core");
+        if (core && typeof core.invoke === "function") {
+          await core.invoke("start_backend");
+        }
+      }
+    } catch (err) {
+      console.warn("[Tauri] Could not invoke start_backend command:", err);
+    } finally {
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await fetch(`${env.apiUrl}/health`);
+          if (res.ok) {
+            setBackendConnected(true);
+            setIsStarting(false);
+            clearInterval(interval);
+          }
+        } catch {
+          if (attempts >= 5) {
+            setIsStarting(false);
+            clearInterval(interval);
+          }
+        }
+      }, 1000);
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+    const interval = setInterval(
+      checkStatus,
+      backendConnected === true ? 10000 : 3000
+    );
+    return () => clearInterval(interval);
+  }, [backendConnected]);
+
+  return { backendConnected, isStarting, restartBackend, checkStatus };
+}
+
+export function BackendStatusBadge() {
+  const { backendConnected, isStarting, restartBackend } = useBackendStatus();
+
+  if (isStarting) {
+    return (
+      <button
+        onClick={restartBackend}
+        disabled={isStarting}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-[6px] text-[12px] font-semibold text-indigo-800 transition hover:bg-indigo-100 cursor-pointer"
+        title="Starting Backend Server..."
+      >
+        <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+        <span className="hidden sm:inline">Starting Backend...</span>
+      </button>
+    );
+  }
+
+  if (backendConnected === false) {
+    return (
+      <button
+        onClick={restartBackend}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-2.5 py-[6px] text-[12px] font-semibold text-red-800 transition hover:bg-red-100 cursor-pointer"
+        title="Backend Offline - Click to start or restart backend package"
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+        </span>
+        <Server className="h-3.5 w-3.5 text-red-600" />
+        <span className="hidden sm:inline">Backend Offline (Click to Start)</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={restartBackend}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-[6px] text-[12px] font-semibold text-emerald-800 transition hover:bg-emerald-100 cursor-pointer"
+      title="Backend Server Active - Click to restart if needed"
+    >
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+      </span>
+      <Server className="h-3.5 w-3.5 text-emerald-600" />
+      <span className="hidden sm:inline">Backend Connected</span>
+    </button>
+  );
+}
+
 export function DbStatusBanner() {
   const { dbConnected, isChecking } = useDbStatus();
 
@@ -94,4 +208,5 @@ export function DbStatusBanner() {
     </div>
   );
 }
+
 

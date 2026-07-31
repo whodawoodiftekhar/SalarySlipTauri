@@ -4,20 +4,48 @@ use tauri::Manager;
 
 struct BackendProcess(Mutex<Option<Child>>);
 
-fn start_backend_server(app: &tauri::App) -> Option<Child> {
+fn spawn_backend_process<M: Manager<R>, R: tauri::Runtime>(manager: &M) -> Option<Child> {
     let mut exe_path = None;
 
-    // 1. Check in app resources directory (installed production app)
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let sidecar_in_resources = resource_dir
-            .join("binaries")
-            .join("backend-x86_64-pc-windows-msvc.exe");
-        if sidecar_in_resources.exists() {
-            exe_path = Some(sidecar_in_resources);
+    // 1. Check resource directory candidate paths (installed production app)
+    if let Ok(resource_dir) = manager.path().resource_dir() {
+        let candidates = [
+            resource_dir.join("backend-x86_64-pc-windows-msvc.exe"),
+            resource_dir.join("binaries").join("backend-x86_64-pc-windows-msvc.exe"),
+            resource_dir.join("backend.exe"),
+            resource_dir.join("binaries").join("backend.exe"),
+        ];
+
+        for candidate in candidates {
+            if candidate.exists() {
+                exe_path = Some(candidate);
+                break;
+            }
         }
     }
 
-    // 2. Check relative binaries path in workspace
+    // 2. Check current executable directory candidates
+    if exe_path.is_none() {
+        if let Ok(current_exe) = std::env::current_exe() {
+            if let Some(parent_dir) = current_exe.parent() {
+                let candidates = [
+                    parent_dir.join("backend-x86_64-pc-windows-msvc.exe"),
+                    parent_dir.join("binaries").join("backend-x86_64-pc-windows-msvc.exe"),
+                    parent_dir.join("backend.exe"),
+                    parent_dir.join("binaries").join("backend.exe"),
+                ];
+
+                for candidate in candidates {
+                    if candidate.exists() {
+                        exe_path = Some(candidate);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Check relative workspace binaries path
     if exe_path.is_none() {
         if let Ok(curr_dir) = std::env::current_dir() {
             let relative_binary = curr_dir
@@ -30,7 +58,7 @@ fn start_backend_server(app: &tauri::App) -> Option<Child> {
         }
     }
 
-    // Spawn bundled binary if found
+    // Spawn binary if found
     if let Some(binary) = exe_path {
         println!("[Tauri] Spawning backend executable: {:?}", binary);
         let mut cmd = Command::new(binary);
@@ -47,7 +75,7 @@ fn start_backend_server(app: &tauri::App) -> Option<Child> {
         }
     }
 
-    // 3. Dev Fallback: spawn node ../Backend/src/server.js
+    // 4. Dev Fallback: spawn node ../Backend/src/server.js
     if let Ok(curr_dir) = std::env::current_dir() {
         let node_server = curr_dir
             .join("..")
@@ -76,9 +104,40 @@ fn start_backend_server(app: &tauri::App) -> Option<Child> {
     None
 }
 
+#[tauri::command]
+fn start_backend(app: tauri::AppHandle) -> Result<String, String> {
+    if let Some(state) = app.try_state::<BackendProcess>() {
+        if let Ok(mut guard) = state.0.lock() {
+            // Check if process is still alive
+            let is_alive = match guard.as_mut() {
+                Some(child) => match child.try_wait() {
+                    Ok(Some(_status)) => false, // Exited
+                    Ok(None) => true,          // Still running
+                    Err(_) => false,
+                },
+                None => false,
+            };
+
+            if is_alive {
+                return Ok("Backend server is already running".to_string());
+            }
+
+            // Spawn backend process
+            if let Some(child) = spawn_backend_process(&app) {
+                *guard = Some(child);
+                return Ok("Backend server launched successfully!".to_string());
+            } else {
+                return Err("Backend executable not found. Please build or install backend package.".to_string());
+            }
+        }
+    }
+    Err("Could not access backend process state".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![start_backend])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 let _ = app.handle().plugin(
@@ -88,7 +147,7 @@ pub fn run() {
                 );
             }
 
-            let child = start_backend_server(app);
+            let child = spawn_backend_process(app);
             app.manage(BackendProcess(Mutex::new(child)));
 
             Ok(())
@@ -108,4 +167,5 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
 

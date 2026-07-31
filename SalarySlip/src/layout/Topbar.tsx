@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { DbStatusBadge } from "@/shared/components/DbStatusBanner";
+import { BackendStatusBadge, DbStatusBadge } from "@/shared/components/DbStatusBanner";
 import { matchNav } from "./navigation";
 
 export function Topbar() {
@@ -11,8 +11,10 @@ export function Topbar() {
         {matchNav(pathname).label}
       </h1>
       <div className="flex items-center gap-3">
+        <BackendStatusBadge />
         <DbStatusBadge />
       </div>
     </header>
   );
 }
+

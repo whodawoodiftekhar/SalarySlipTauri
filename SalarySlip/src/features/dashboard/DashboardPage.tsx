@@ -1,4 +1,5 @@
-import { Plus, Sparkles, Users } from "lucide-react";
+import { useState } from "react";
+import { Play, Plus, RefreshCw, Sparkles, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEmployees } from "@/features/employees/hooks/useEmployees";
 import { useSettings } from "@/features/settings/hooks/useSettings";
@@ -17,6 +18,38 @@ export default function DashboardPage() {
   const { roster, loading, error, refetch } = useEmployees();
   const { company, currentUser } = useSettings();
   const navigate = useNavigate();
+  const [startingBackend, setStartingBackend] = useState(false);
+  const [backendStatusMsg, setBackendStatusMsg] = useState<string | null>(null);
+
+  const handleStartBackend = async () => {
+    setStartingBackend(true);
+    setBackendStatusMsg(null);
+    try {
+      if (
+        typeof window !== "undefined" &&
+        ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+      ) {
+        const core = await import("@tauri-apps/api/core");
+        if (core && typeof core.invoke === "function") {
+          const result = await core.invoke<string>("start_backend");
+          setBackendStatusMsg(result);
+        }
+      } else {
+        setBackendStatusMsg("Running in web browser mode.");
+      }
+      setTimeout(() => {
+        refetch();
+      }, 1200);
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as Error)?.message || "Failed to start backend";
+      setBackendStatusMsg(msg);
+    } finally {
+      setStartingBackend(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -36,12 +69,34 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="p-6">
         <ErrorState
           title="Could not load the dashboard"
           error={error}
           onRetry={refetch}
         />
+        <div className="mt-4 flex flex-col items-center justify-center gap-2 border-t border-slate-100 pt-4">
+          <p className="text-[13px] text-slate-500">
+            If the backend server is not running, click below to launch it automatically:
+          </p>
+          <Button
+            className="bg-indigo-600 text-white hover:bg-indigo-700"
+            onClick={handleStartBackend}
+            disabled={startingBackend}
+          >
+            {startingBackend ? (
+              <RefreshCw size={15} className="animate-spin" />
+            ) : (
+              <Play size={15} />
+            )}
+            {startingBackend ? "Starting Backend..." : "Start Backend Package"}
+          </Button>
+          {backendStatusMsg && (
+            <span className="text-[12px] font-medium text-emerald-600">
+              {backendStatusMsg}
+            </span>
+          )}
+        </div>
       </Card>
     );
   }
@@ -93,3 +148,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
