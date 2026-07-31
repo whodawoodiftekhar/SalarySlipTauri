@@ -88,8 +88,11 @@ export default function CompanySetupPage() {
   const [legalName, setLegalName] = useState(
     company.legalName || "COMM-IT INDIA PVT. LTD."
   );
-  const [addressShort, setAddressShort] = useState(
-    company.addressShort || "New Delhi 110025"
+  const [city, setCity] = useState(
+    company.city || (company.addressShort ? company.addressShort.replace(/\s*\d{5,6}$/, '') : "New Delhi")
+  );
+  const [pincode, setPincode] = useState(
+    company.pincode || (company.addressShort ? (company.addressShort.match(/\d{5,6}$/)?.[0] || "") : "110025")
   );
   const [line1, setLine1] = useState(
     company.addressLines?.[0] ||
@@ -100,8 +103,10 @@ export default function CompanySetupPage() {
   );
   const [logoUrl, setLogoUrl] = useState(company.logoUrl || "");
   const [watermarkText, setWatermarkText] = useState(
-    company.watermarkText || company.name || ""
+    company.watermarkText ?? ""
   );
+
+  const computedAddressShort = [city, pincode].filter(Boolean).join(" ");
 
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -134,7 +139,9 @@ export default function CompanySetupPage() {
         company: {
           name,
           legalName,
-          addressShort,
+          city,
+          pincode,
+          addressShort: computedAddressShort,
           addressLines: [line1, line2].filter(Boolean),
           logoUrl,
           watermarkText,
@@ -190,7 +197,7 @@ export default function CompanySetupPage() {
             </div>
             <p className="text-[9.5px] text-indigo-300 flex items-start gap-1 leading-tight">
               <MapPin size={9} className="mt-0.5 shrink-0" />
-              <span className="line-clamp-2">{addressShort}</span>
+              <span className="line-clamp-2">{computedAddressShort}</span>
             </p>
             <div className="mt-2 rounded-md bg-white/10 px-2 py-1 text-center text-[8.5px] font-bold uppercase tracking-widest text-white/50">
               {watermarkText || "WATERMARK PREVIEW"}
@@ -348,12 +355,22 @@ export default function CompanySetupPage() {
               />
             </Field>
 
-            <Field label="City / Short Address" hint="One-liner location for payslip header">
+            <Field label="City" hint="City name for payslip header">
               <input
                 className={INPUT}
-                value={addressShort}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddressShort(e.target.value)}
-                placeholder="e.g. New Delhi 110025"
+                value={city}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCity(e.target.value)}
+                placeholder="e.g. New Delhi"
+                required
+              />
+            </Field>
+
+            <Field label="PIN Code" hint="Postal PIN code">
+              <input
+                className={INPUT}
+                value={pincode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPincode(e.target.value)}
+                placeholder="e.g. 110025"
                 required
               />
             </Field>
@@ -368,7 +385,7 @@ export default function CompanySetupPage() {
               />
             </Field>
 
-            <Field label="Address Line 2" span2>
+            <Field label="Address Line 2">
               <input
                 className={INPUT}
                 value={line2}

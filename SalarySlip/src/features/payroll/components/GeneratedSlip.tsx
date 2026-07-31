@@ -76,7 +76,7 @@ export function GeneratedSlip({
             className="rotate-[-30deg] font-extrabold uppercase tracking-[0.2em] text-black font-sans whitespace-nowrap"
             style={{ fontSize: "clamp(48px, 8vw, 90px)", letterSpacing: "0.18em" }}
           >
-            {company.watermarkText || company.name || "COMM-IT"}
+            {company.watermarkText !== undefined ? company.watermarkText : (company.name || "COMM-IT")}
           </span>
         </div>
 

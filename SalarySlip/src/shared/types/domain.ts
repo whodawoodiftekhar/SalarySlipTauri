@@ -68,6 +68,8 @@ export interface CompanyProfile {
   legalName: string;
   /** Bundled logo URL — the lockup includes the wordmark and tagline. */
   logo: string;
+  city?: string;
+  pincode?: string;
   addressShort: string;
   addressLines: string[];
 }

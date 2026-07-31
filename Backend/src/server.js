@@ -48,6 +48,8 @@ const checkDbConnection = (req, res, next) => {
           company: {
             name: "COMM-IT",
             legalName: "COMM-IT INDIA PVT. LTD.",
+            city: "New Delhi",
+            pincode: "110025",
             addressShort: "New Delhi 110025",
             addressLines: [
               "S-113, First Floor, Salcon Aurum, Jasola District Centre",

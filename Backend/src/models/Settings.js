@@ -4,6 +4,8 @@ export const DEFAULT_SETTINGS = {
   company: {
     name: "COMM-IT",
     legalName: "COMM-IT INDIA PVT. LTD.",
+    city: "New Delhi",
+    pincode: "110025",
     addressShort: "New Delhi 110025",
     addressLines: [
       "S-113, First Floor, Salcon Aurum, Jasola District Centre",
@@ -34,6 +36,8 @@ const companySchema = new mongoose.Schema(
   {
     name: { type: String, default: "COMM-IT" },
     legalName: { type: String, default: "COMM-IT INDIA PVT. LTD." },
+    city: { type: String, default: "New Delhi" },
+    pincode: { type: String, default: "110025" },
     addressShort: { type: String, default: "New Delhi 110025" },
     addressLines: {
       type: [String],

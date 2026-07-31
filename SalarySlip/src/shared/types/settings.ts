@@ -1,6 +1,8 @@
 export interface CompanyProfile {
   name: string;
   legalName: string;
+  city?: string;
+  pincode?: string;
   addressShort: string;
   addressLines: string[];
   logoUrl?: string;
