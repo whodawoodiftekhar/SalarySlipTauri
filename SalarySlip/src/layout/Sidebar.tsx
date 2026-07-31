@@ -18,10 +18,11 @@ export function Sidebar() {
     >
       <div className="flex flex-col gap-[3px] px-2 pb-[18px] pt-1 max-mob:mr-[6px] max-mob:flex-none max-mob:p-0">
         <img
-          src={LOGO}
+          src={company.logoUrl || LOGO}
           alt={company.name}
-          className="h-8 w-auto max-mob:h-[26px]"
+          className="h-8 w-auto max-h-8 object-contain max-mob:h-[26px]"
         />
+
         <small className="text-[11px] text-mist max-mob:hidden">
           Payroll · HR
         </small>

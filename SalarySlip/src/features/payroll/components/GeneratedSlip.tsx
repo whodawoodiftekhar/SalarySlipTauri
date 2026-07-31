@@ -70,10 +70,13 @@ export function GeneratedSlip({
         className="paper-wrap relative w-full max-w-[820px] rounded-sm bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,0.35)] max-mob:p-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Background Watermark Container */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm opacity-[0.06] select-none flex items-center justify-center">
-          <span className="rotate-[-25deg] text-[85px] font-extrabold uppercase tracking-[0.18em] text-black font-sans whitespace-nowrap">
-            COMM-IT
+        {/* Background Text Watermark */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm select-none flex items-center justify-center opacity-[0.07]">
+          <span
+            className="rotate-[-30deg] font-extrabold uppercase tracking-[0.2em] text-black font-sans whitespace-nowrap"
+            style={{ fontSize: "clamp(48px, 8vw, 90px)", letterSpacing: "0.18em" }}
+          >
+            {company.watermarkText || company.name || "COMM-IT"}
           </span>
         </div>
 
@@ -84,11 +87,12 @@ export function GeneratedSlip({
               <tr>
                 <td className="w-[22%] text-center p-2.5" rowSpan={2}>
                   <img
-                    src={LOGO}
+                    src={company.logoUrl || LOGO}
                     alt={company.name}
-                    className="mx-auto h-auto w-full max-w-[130px]"
+                    className="mx-auto h-auto max-h-16 w-full max-w-[130px] object-contain"
                   />
                 </td>
+
                 <td className="text-[12px] leading-[1.4] text-[#111]" colSpan={3}>
                   <b className="text-[13.5px] font-bold block">{company.legalName}</b>
                   {company.addressLines.map((line) => (
@@ -191,7 +195,7 @@ export function GeneratedSlip({
 
           {/* Footer Note */}
           <div className="mt-2.5 text-[11.5px] text-[#333] font-normal">
-            This is a computer generated salary slip and does not require signature
+            {slipDefaults?.footNote || "This is a computer generated salary slip and does not require signature"}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import AddEmployeePage from "@/features/employees/AddEmployeePage";
 import { EmployeeProvider } from "@/features/employees/context/EmployeeProvider";
 import PayrollPage from "@/features/payroll/PayrollPage";
 import { SettingsProvider } from "@/features/settings/context/SettingsProvider";
+import CompanySetupPage from "@/features/settings/pages/CompanySetupPage";
 import { AppLayout } from "@/layout/AppLayout";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
                 element={<Navigate to="/employees" replace />}
               />
               <Route path="components" element={<ComponentsPage />} />
+              <Route path="settings" element={<CompanySetupPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
@@ -33,3 +35,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

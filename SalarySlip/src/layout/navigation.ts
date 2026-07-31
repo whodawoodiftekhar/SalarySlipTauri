@@ -1,4 +1,5 @@
 import {
+  Building2,
   LayoutDashboard,
   SlidersHorizontal,
   Users,
@@ -18,7 +19,14 @@ export const NAV: NavItem[] = [
     icon: SlidersHorizontal,
     path: "/components",
   },
+  {
+    id: "settings",
+    label: "Company Setup",
+    icon: Building2,
+    path: "/settings",
+  },
 ];
+
 
 /** Which nav entry owns a given URL — "/" must match exactly. */
 export const matchNav = (pathname: string): NavItem =>

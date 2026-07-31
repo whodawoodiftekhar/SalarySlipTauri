@@ -245,9 +245,9 @@ export function AddEmployeeModal({
               {/* Logo & Company Header */}
               <div className="flex items-center gap-3 border-b border-line pb-3.5">
                 <img
-                  src={LOGO}
+                  src={company.logoUrl || LOGO}
                   alt={company.name}
-                  className="h-[30px] w-auto flex-none"
+                  className="h-[30px] w-auto max-h-[30px] flex-none object-contain"
                 />
                 <div>
                   <b className="text-[13px] font-bold text-ink block">{company.legalName}</b>

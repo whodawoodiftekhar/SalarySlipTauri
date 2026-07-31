@@ -3,7 +3,11 @@ export interface CompanyProfile {
   legalName: string;
   addressShort: string;
   addressLines: string[];
+  logoUrl?: string;
+  watermarkText?: string;
+  isConfigured?: boolean;
 }
+
 
 export interface SlipDefaults {
   bankName: string;
