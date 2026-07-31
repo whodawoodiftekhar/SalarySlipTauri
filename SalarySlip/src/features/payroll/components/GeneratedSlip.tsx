@@ -1,10 +1,12 @@
-import { Printer, X } from "lucide-react";
+import { Mail, Printer, X } from "lucide-react";
+import { useState } from "react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
 import { Overlay } from "@/shared/components/ui/Overlay";
 import { LOGO } from "@/shared/lib/branding";
 import { inr } from "@/shared/lib/format";
 import type { ComputedComponent, Employee, PayrollResult } from "@/shared/types";
+import { SendOutlookEmailModal } from "./SendOutlookEmailModal";
 
 const CELL =
   "[&_td]:border [&_td]:border-[#333] [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:print:py-[5px] [&_td]:text-[12px] [&_td]:align-middle";
@@ -23,9 +25,9 @@ function MetaRow({
   return (
     <tr>
       <td className="w-[18%]">{k1}</td>
-      <td className="w-[30%] font-semibold">{v1}</td>
+      <td className="w-[32%] font-bold">{v1}</td>
       <td className="w-[18%]">{k2}</td>
-      <td className="w-[30%] font-semibold">{v2}</td>
+      <td className="w-[32%] font-bold">{v2}</td>
     </tr>
   );
 }
@@ -47,6 +49,7 @@ export function GeneratedSlip({
   onClose: () => void;
 }) {
   const { company, slipDefaults } = useSettings();
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // pad the shorter column so the grid stays aligned like the printed slip
   const rowN = Math.max(res.earnings.length, res.deductions.length);
@@ -57,7 +60,7 @@ export function GeneratedSlip({
 
   return (
     <Overlay onClose={onClose}>
-      <div className="no-print mb-4 flex gap-2.5">
+      <div className="no-print mb-4 flex flex-wrap gap-2.5">
         <Button variant="overlay" onClick={() => window.print()}>
           <Printer size={15} /> Print / Save PDF
         </Button>
@@ -65,6 +68,15 @@ export function GeneratedSlip({
           <X size={15} /> Close
         </Button>
       </div>
+
+      {showEmailModal && (
+        <SendOutlookEmailModal
+          emp={emp}
+          res={res}
+          period={period}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
 
       <div
         className="paper-wrap relative w-full max-w-[820px] rounded-sm bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,0.35)] max-mob:p-3"
@@ -128,12 +140,23 @@ export function GeneratedSlip({
                 v2={emp.bankAccountNo || slipDefaults.bankAccountNo}
               />
               <MetaRow
-                k1="Days in Month"
-                v1={dim}
+                k1="Date of Joining"
+                v1={emp.doj || "01-Jan-2024"}
                 k2="PF Account No."
                 v2={emp.pfAccountNo || slipDefaults.pfAccountNo}
               />
-              <MetaRow k1="Days Payable" v1={dpay} k2="" v2="" />
+              <MetaRow
+                k1="PAN Number"
+                v1={emp.pan || "ABCDE1234F"}
+                k2="UAN Number"
+                v2={emp.uan || "101234567890"}
+              />
+              <MetaRow
+                k1="Days in Month"
+                v1={dim}
+                k2="Days Payable"
+                v2={dpay}
+              />
 
               {/* Components banner */}
               <tr>
@@ -199,6 +222,15 @@ export function GeneratedSlip({
           </div>
         </div>
       </div>
+
+      {showEmailModal && (
+        <SendOutlookEmailModal
+          emp={emp}
+          res={res}
+          period={period}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
     </Overlay>
   );
 }

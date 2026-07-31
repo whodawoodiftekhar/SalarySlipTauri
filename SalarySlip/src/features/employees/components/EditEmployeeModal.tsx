@@ -23,6 +23,7 @@ export function EditEmployeeModal({
 
   const [f, setF] = useState({
     name: employee.name ?? "",
+    email: employee.email ?? "",
     dept: employee.dept ?? departments[0] ?? "",
     role: employee.role ?? "",
     basic: String(employee.basic ?? 0),
@@ -32,6 +33,10 @@ export function EditEmployeeModal({
     bankName: employee.bankName ?? "",
     bankAccountNo: employee.bankAccountNo ?? "",
     pfAccountNo: employee.pfAccountNo ?? "",
+    pan: employee.pan ?? "",
+    uan: employee.uan ?? "",
+    doj: employee.doj ?? "",
+    paymentMode: employee.paymentMode ?? "Bank Transfer",
   });
 
   const set =
@@ -39,11 +44,12 @@ export function EditEmployeeModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
-  const valid = Boolean(f.name.trim() && f.role.trim());
+  const valid = Boolean(f.name.trim() && f.role.trim() && f.email.trim());
 
   const handleSave = async () => {
     await onSave({
       name: f.name.trim(),
+      email: f.email.trim(),
       dept: f.dept,
       role: f.role.trim(),
       basic: num(f.basic),
@@ -53,6 +59,10 @@ export function EditEmployeeModal({
       bankName: f.bankName.trim(),
       bankAccountNo: f.bankAccountNo.trim(),
       pfAccountNo: f.pfAccountNo.trim(),
+      pan: f.pan.trim(),
+      uan: f.uan.trim(),
+      doj: f.doj.trim(),
+      paymentMode: f.paymentMode.trim(),
     });
   };
 
@@ -87,6 +97,15 @@ export function EditEmployeeModal({
                   value={f.name}
                   onChange={set("name")}
                   placeholder="e.g. Priya Sharma"
+                />
+              </Field>
+              <Field label="Email Address *">
+                <input
+                  type="email"
+                  className={FIELD_INPUT}
+                  value={f.email}
+                  onChange={set("email")}
+                  placeholder="e.g. priya.sharma@comm-it.com"
                 />
               </Field>
               <Field label="Employee Code">

@@ -41,7 +41,9 @@ export function EmployeeTable({
                 <Avatar label={initials(e.name)} size="sm" />
                 <div>
                   <b className="block">{e.name}</b>
-                  <small className="text-[11.5px] text-mist">{e.role}</small>
+                  <small className="text-[11.5px] text-mist">
+                    {e.role} {e.email && <span className="text-slate-400">· {e.email}</span>}
+                  </small>
                 </div>
               </div>
             </td>

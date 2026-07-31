@@ -36,6 +36,7 @@ export interface PayrollResult {
 export interface Employee {
   id: string;
   name: string;
+  email?: string;
   dept: string;
   role: string;
   basic: number;
@@ -45,6 +46,10 @@ export interface Employee {
   bankName?: string;
   bankAccountNo?: string;
   pfAccountNo?: string;
+  pan?: string;
+  uan?: string;
+  doj?: string;
+  paymentMode?: string;
 }
 
 /** The fields the default salary structure is generated from. */

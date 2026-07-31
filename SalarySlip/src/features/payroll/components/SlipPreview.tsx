@@ -1,10 +1,12 @@
-import { FileCheck2, Loader2 } from "lucide-react";
+import { FileCheck2, Loader2, Mail } from "lucide-react";
+import { useState } from "react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
 import { LOGO } from "@/shared/lib/branding";
 import { inr } from "@/shared/lib/format";
 import type { ComputedComponent, Employee, PayrollResult } from "@/shared/types";
+import { SendOutlookEmailModal } from "./SendOutlookEmailModal";
 
 function Col({
   title,
@@ -63,6 +65,7 @@ export function SlipPreview({
   onGenerate: () => void;
 }) {
   const { company, slipDefaults } = useSettings();
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   return (
     <Card className="sticky top-[92px]">
@@ -122,14 +125,32 @@ export function SlipPreview({
         </div>
       </div>
 
-      <Button size="wide" onClick={onGenerate} disabled={finalizing}>
-        {finalizing ? (
-          <Loader2 size={15} className="animate-spin" />
-        ) : (
-          <FileCheck2 size={15} />
-        )}
-        {finalizing ? "Finalizing…" : "Generate & finalize payslip"}
-      </Button>
+      <div className="space-y-2">
+        <Button size="wide" onClick={onGenerate} disabled={finalizing}>
+          {finalizing ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <FileCheck2 size={15} />
+          )}
+          {finalizing ? "Finalizing…" : "Generate & finalize payslip"}
+        </Button>
+
+        <button
+          onClick={() => setShowEmailModal(true)}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#0078D4] hover:bg-[#005A9E] text-white py-2.5 text-[13px] font-semibold shadow-sm transition"
+        >
+          <Mail size={15} /> Send via Outlook
+        </button>
+      </div>
+
+      {showEmailModal && (
+        <SendOutlookEmailModal
+          emp={emp}
+          res={res}
+          period={period}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
     </Card>
   );
 }

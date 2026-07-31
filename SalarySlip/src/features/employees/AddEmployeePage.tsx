@@ -21,6 +21,7 @@ export default function AddEmployeePage() {
 
   const [f, setF] = useState<EmployeeFormState>({
     name: "",
+    email: "",
     id: "",
     dept: departments[0] ?? "",
     role: "",
@@ -31,6 +32,10 @@ export default function AddEmployeePage() {
     bankName: "",
     bankAccountNo: "",
     pfAccountNo: "",
+    pan: "",
+    uan: "",
+    doj: "",
+    paymentMode: "Bank Transfer",
   });
 
   useEffect(() => {
@@ -48,7 +53,7 @@ export default function AddEmployeePage() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
-  const valid = Boolean(f.name.trim() && f.role.trim() && num(f.basic) > 0);
+  const valid = Boolean(f.name.trim() && f.role.trim() && f.email.trim() && num(f.basic) > 0);
 
   const previewResult = compute(
     makeStructure(
@@ -68,6 +73,7 @@ export default function AddEmployeePage() {
     const employee = await addEmployee({
       id: f.id.trim(),
       name: f.name.trim(),
+      email: f.email.trim(),
       dept: f.dept,
       role: f.role.trim(),
       basic: num(f.basic),
@@ -77,6 +83,10 @@ export default function AddEmployeePage() {
       bankName: f.bankName.trim(),
       bankAccountNo: f.bankAccountNo.trim(),
       pfAccountNo: f.pfAccountNo.trim(),
+      pan: f.pan.trim(),
+      uan: f.uan.trim(),
+      doj: f.doj.trim(),
+      paymentMode: f.paymentMode.trim(),
     });
     navigate(`/payroll/${employee.id}`);
   };
@@ -110,7 +120,16 @@ export default function AddEmployeePage() {
                   className={FIELD_INPUT}
                   value={f.name}
                   onChange={set("name")}
-                  placeholder="e.g. Priya Sharma"
+                  placeholder="e.g. Name"
+                />
+              </Field>
+              <Field label="Email Address *">
+                <input
+                  type="email"
+                  className={FIELD_INPUT}
+                  value={f.email}
+                  onChange={set("email")}
+                  placeholder="e.g. example@comm-it.com"
                 />
               </Field>
               <Field label="Employee Code *">

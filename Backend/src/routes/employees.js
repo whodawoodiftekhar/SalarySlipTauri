@@ -34,11 +34,12 @@ router.get("/:id", async (req, res) => {
 
 /** POST /api/employees — create, and attach the default salary structure */
 router.post("/", async (req, res) => {
-  const { id, name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo } = req.body;
+  const { id, name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode } = req.body;
 
   const employee = await Employee.create({
     id,
     name,
+    email,
     dept,
     role,
     basic,
@@ -48,6 +49,10 @@ router.post("/", async (req, res) => {
     bankName,
     bankAccountNo,
     pfAccountNo,
+    pan,
+    uan,
+    doj,
+    paymentMode,
   });
 
   const dbCatalog = await SalaryComponent.find().lean();
@@ -62,11 +67,11 @@ router.post("/", async (req, res) => {
 
 /** PUT /api/employees/:id — update the employee record */
 router.put("/:id", async (req, res) => {
-  const { name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo } = req.body;
+  const { name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode } = req.body;
 
   const employee = await Employee.findOneAndUpdate(
     { id: req.params.id },
-    { name, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo },
+    { name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode },
     { returnDocument: "after", runValidators: true },
   );
 

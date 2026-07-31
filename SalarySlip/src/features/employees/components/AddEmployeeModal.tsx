@@ -24,6 +24,7 @@ export function AddEmployeeModal({
 
   const [f, setF] = useState<EmployeeFormState>({
     name: "",
+    email: "",
     id: "",
     dept: departments[0] ?? "",
     role: "",
@@ -34,6 +35,10 @@ export function AddEmployeeModal({
     bankName: "",
     bankAccountNo: "",
     pfAccountNo: "",
+    pan: "",
+    uan: "",
+    doj: "",
+    paymentMode: "Bank Transfer",
   });
 
   // the next free code is assigned by the API, not guessed in the browser
@@ -52,7 +57,7 @@ export function AddEmployeeModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
-  const valid = Boolean(f.name.trim() && f.role.trim() && num(f.basic) > 0);
+  const valid = Boolean(f.name.trim() && f.role.trim() && f.email.trim() && num(f.basic) > 0);
 
   // the estimate is computed by the API from the same engine payroll uses
   const seedKey = valid
@@ -90,6 +95,7 @@ export function AddEmployeeModal({
     onSave({
       id: f.id.trim(),
       name: f.name.trim(),
+      email: f.email.trim(),
       dept: f.dept,
       role: f.role.trim(),
       basic: num(f.basic),
@@ -99,6 +105,10 @@ export function AddEmployeeModal({
       bankName: f.bankName.trim(),
       bankAccountNo: f.bankAccountNo.trim(),
       pfAccountNo: f.pfAccountNo.trim(),
+      pan: f.pan.trim(),
+      uan: f.uan.trim(),
+      doj: f.doj.trim(),
+      paymentMode: f.paymentMode.trim(),
     });
 
   return (
@@ -108,11 +118,11 @@ export function AddEmployeeModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="mb-5 flex items-start justify-between border-b border-line pb-4">
+        <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5">
           <div>
-            <h3 className="m-0 text-[19px] font-bold text-ink">Add New Employee</h3>
-            <p className="mt-1 text-[13px] text-mist">
-              Enter personal details, bank accounts, and monthly salary configuration.
+            <h3 className="m-0 text-[18px] font-bold text-ink">Add New Employee</h3>
+            <p className="m-0 text-[12px] text-mist">
+              Fill in personal details, banking info, and initial CTC.
             </p>
           </div>
           <IconButton onClick={onCancel} aria-label="Close">
@@ -121,8 +131,8 @@ export function AddEmployeeModal({
         </div>
 
         {/* Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
-          {/* Section 1: General Info */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          {/* Section 1: Personal & Work Details */}
           <div className="rounded-xl border border-line bg-paper/50 p-4">
             <div className="mb-3 flex items-center gap-2 text-[13.5px] font-bold text-ink">
               <User size={16} className="text-accent" /> Personal &amp; Work Details
@@ -134,6 +144,15 @@ export function AddEmployeeModal({
                   value={f.name}
                   onChange={set("name")}
                   placeholder="e.g. Priya Sharma"
+                />
+              </Field>
+              <Field label="Email Address *">
+                <input
+                  type="email"
+                  className={FIELD_INPUT}
+                  value={f.email}
+                  onChange={set("email")}
+                  placeholder="e.g. priya.sharma@comm-it.com"
                 />
               </Field>
               <Field label="Employee Code *">

@@ -13,12 +13,12 @@ import { SalaryComponent } from "./models/SalaryComponent.js";
 import { SalaryStructure } from "./models/SalaryStructure.js";
 
 const EMPLOYEES = [
-  { id: "C11020", name: "Aisha Rahman", dept: "IT", role: "Senior Software Engineer", basic: 90000, special: 42000, tds: 12000, onsite: 0 },
-  { id: "C11021", name: "Rohan Mehta", dept: "IT", role: "Software Engineer", basic: 55000, special: 22000, tds: 5500, onsite: 0 },
-  { id: "C11022", name: "Neha Kapoor", dept: "Design", role: "Product Designer", basic: 70000, special: 30000, tds: 8000, onsite: 0 },
-  { id: "C11023", name: "Vikram Singh", dept: "IT", role: "Engineering Manager", basic: 150000, special: 80000, tds: 34000, onsite: 25000 },
-  { id: "C11024", name: "Sana Iqbal", dept: "HR", role: "HR Executive", basic: 40000, special: 14000, tds: 2000, onsite: 0 },
-  { id: "C11025", name: "Arjun Nair", dept: "IT", role: "QA Engineer", basic: 48000, special: 18000, tds: 3800, onsite: 0 },
+  { id: "C11020", name: "Aisha Rahman", email: "aisha.rahman@comm-it.com", dept: "IT", role: "Senior Software Engineer", basic: 90000, special: 42000, tds: 12000, onsite: 0 },
+  { id: "C11021", name: "Rohan Mehta", email: "rohan.mehta@comm-it.com", dept: "IT", role: "Software Engineer", basic: 55000, special: 22000, tds: 5500, onsite: 0 },
+  { id: "C11022", name: "Neha Kapoor", email: "neha.kapoor@comm-it.com", dept: "Design", role: "Product Designer", basic: 70000, special: 30000, tds: 8000, onsite: 0 },
+  { id: "C11023", name: "Vikram Singh", email: "vikram.singh@comm-it.com", dept: "IT", role: "Engineering Manager", basic: 150000, special: 80000, tds: 34000, onsite: 25000 },
+  { id: "C11024", name: "Sana Iqbal", email: "sana.iqbal@comm-it.com", dept: "HR", role: "HR Executive", basic: 40000, special: 14000, tds: 2000, onsite: 0 },
+  { id: "C11025", name: "Arjun Nair", email: "arjun.nair@comm-it.com", dept: "IT", role: "QA Engineer", basic: 48000, special: 18000, tds: 3800, onsite: 0 },
 ];
 
 const CATALOG = [

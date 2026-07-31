@@ -8,6 +8,7 @@ const employeeSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
+    email: { type: String, default: "", trim: true },
     dept: { type: String, required: true, trim: true },
     role: { type: String, required: true, trim: true },
     basic: { type: Number, required: true, min: 0 },
@@ -17,6 +18,10 @@ const employeeSchema = new mongoose.Schema(
     bankName: { type: String, default: "", trim: true },
     bankAccountNo: { type: String, default: "", trim: true },
     pfAccountNo: { type: String, default: "", trim: true },
+    pan: { type: String, default: "", trim: true },
+    uan: { type: String, default: "", trim: true },
+    doj: { type: String, default: "", trim: true },
+    paymentMode: { type: String, default: "Bank Transfer", trim: true },
   },
   {
     timestamps: true,

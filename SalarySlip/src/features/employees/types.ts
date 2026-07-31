@@ -8,6 +8,7 @@ export type UpdateEmployeeDto = Partial<Omit<Employee, "id">>;
 
 export interface EmployeeFormState {
   name: string;
+  email: string;
   id: string;
   dept: string;
   role: string;
@@ -18,4 +19,8 @@ export interface EmployeeFormState {
   bankName: string;
   bankAccountNo: string;
   pfAccountNo: string;
+  pan: string;
+  uan: string;
+  doj: string;
+  paymentMode: string;
 }
