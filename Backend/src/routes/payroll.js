@@ -489,7 +489,7 @@ function Invoke-NewOutlook() {
     [WinEnum]::GetWindowRect($target.Handle, [ref]$rect) | Out-Null
     $saved = New-Object WinEnum+POINT
     [WinEnum]::GetCursorPos([ref]$saved) | Out-Null
-    # Click roughly at the vertical centre, 40% from the left — inside
+    # Click roughly at the vertical centre, 40% from the left -- inside
     # the body editor, well clear of the To/Subject/ribbon chrome.
     $cx = [int]($rect.Left + ($rect.Right - $rect.Left) * 0.4)
     $cy = [int]($rect.Top + ($rect.Bottom - $rect.Top) * 0.55)
@@ -498,7 +498,7 @@ function Invoke-NewOutlook() {
     [WinEnum]::Click() | Out-Null
     Start-Sleep -Milliseconds 400
 
-    # Ctrl+V via SendInput — this is accepted by the WebView2 surface.
+    # Ctrl+V via SendInput -- this is accepted by the WebView2 surface.
     [WinEnum]::CtrlKey(0x56) | Out-Null   # 0x56 = 'V'
     Start-Sleep -Seconds 3
 
