@@ -246,108 +246,333 @@ router.post("/send-email", async (req, res) => {
 });
 
 /**
- * PowerShell that opens a compose window for the payslip.
+ * PowerShell that opens a compose window for the payslip and attaches the PDF.
  *
  * All values arrive via a UTF-8 JSON file rather than string interpolation —
  * the body carries ₹, apostrophes and newlines, every one of which used to
- * break the generated script.
+ * break the generated script. (Keep this script free of backticks and of
+ * "${...}" so the String.raw template stays intact.)
  *
- * Only COM can attach a file to a draft. New Outlook (the Store "Outlook for
- * Windows" app) exposes no COM server and its mailto: handler ignores
- * attachments, so when COM is absent we open the composer *without* the PDF and
- * say so — the caller then tells the user to drag it from Downloads.
+ * New Outlook (the Store "Outlook for Windows" app, olk.exe) has no COM server,
+ * and neither mailto: nor its CLI accept an attachment. The only local way in is
+ * the clipboard: open the composer via mailto, put the PDF on the clipboard as a
+ * CF_HDROP file list, then paste it into the compose window.
+ *
+ * That means synthesising a keystroke, so the script refuses to do it blind — it
+ * pastes only after it has found a *visible olk window whose title matches this
+ * payslip's subject* and confirmed that window is in the foreground. If it can't
+ * confirm both, it reports back instead of typing into whatever had focus.
  */
 const OUTLOOK_PS_SCRIPT = String.raw`
 $ErrorActionPreference = 'Continue'
 $cfg = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8 | ConvertFrom-Json
+$mode = if ($cfg.mode) { $cfg.mode } else { 'new' }
 
-# Method 1 — COM automation (classic Outlook desktop). The only route that can
-# attach the PDF to the draft.
-try {
-    $Outlook = New-Object -ComObject Outlook.Application
-    if ($Outlook) {
-        $Mail = $Outlook.CreateItem(0)
-        $Mail.To = $cfg.to
-        $Mail.Subject = $cfg.subject
-        $Mail.Body = $cfg.body
-        if (Test-Path -LiteralPath $cfg.attachment) {
-            $Mail.Attachments.Add($cfg.attachment) | Out-Null
-        }
-        $Mail.Display()
-        Write-Output 'RESULT:COM_ATTACHED'
-        exit 0
+Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+
+Add-Type -ErrorAction SilentlyContinue -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public class WinEnum {
+    private delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc cb, IntPtr lParam);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr h, StringBuilder buf, int max);
+    [DllImport("user32.dll")] private static extern int GetWindowTextLength(IntPtr h);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint n, INPUT[] inputs, int size);
+
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+    [StructLayout(LayoutKind.Sequential)] private struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Explicit)] private struct UNION {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+        [FieldOffset(0)] public KEYBDINPUT ki;
     }
-} catch {
-    Write-Output "INFO:COM unavailable - $($_.Exception.Message)"
+    [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public UNION u; }
+
+    private const uint INPUT_MOUSE = 0, INPUT_KEYBOARD = 1;
+    private const uint MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const ushort VK_CONTROL = 0x11;
+
+    /**
+     * New Outlook's compose surface is WebView2, which ignores keystrokes
+     * injected by WScript.Shell.SendKeys (keybd_event). SendInput does land, but
+     * only once the editable element has real focus - hence the click first.
+     */
+    public static uint Click() {
+        INPUT[] inp = new INPUT[2];
+        inp[0].type = INPUT_MOUSE; inp[0].u.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+        inp[1].type = INPUT_MOUSE; inp[1].u.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+        return SendInput(2, inp, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    public static uint CtrlKey(ushort vk) {
+        INPUT[] inp = new INPUT[4];
+        inp[0].type = INPUT_KEYBOARD; inp[0].u.ki.wVk = VK_CONTROL;
+        inp[1].type = INPUT_KEYBOARD; inp[1].u.ki.wVk = vk;
+        inp[2].type = INPUT_KEYBOARD; inp[2].u.ki.wVk = vk; inp[2].u.ki.dwFlags = KEYEVENTF_KEYUP;
+        inp[3].type = INPUT_KEYBOARD; inp[3].u.ki.wVk = VK_CONTROL; inp[3].u.ki.dwFlags = KEYEVENTF_KEYUP;
+        return SendInput(4, inp, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    public class Info {
+        public IntPtr Handle;
+        public string Title;
+        public uint Pid;
+    }
+
+    public static List<Info> Visible() {
+        List<Info> found = new List<Info>();
+        EnumWindows(delegate(IntPtr h, IntPtr l) {
+            if (!IsWindowVisible(h)) return true;
+            int len = GetWindowTextLength(h);
+            if (len <= 0) return true;
+            StringBuilder sb = new StringBuilder(len + 2);
+            GetWindowText(h, sb, sb.Capacity);
+            uint pid;
+            GetWindowThreadProcessId(h, out pid);
+            Info i = new Info();
+            i.Handle = h;
+            i.Title = sb.ToString();
+            i.Pid = pid;
+            found.Add(i);
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    public static uint PidOf(IntPtr h) {
+        uint pid;
+        GetWindowThreadProcessId(h, out pid);
+        return pid;
+    }
+}
+'@
+
+# Reduce a string to lowercase letters+digits so window titles can be compared
+# without tripping over the em dash, curly quotes or truncation ellipses.
+function Get-Norm([string]$s) {
+    if (-not $s) { return '' }
+    return (($s -replace '[^\p{L}\p{Nd}]', '')).ToLowerInvariant()
 }
 
-# Method 2 — classic outlook.exe CLI. /m carries the recipient+subject+body and
-# /a the attachment.
-try {
-    $outlookPath = $null
-    $cmd = Get-Command outlook.exe -ErrorAction SilentlyContinue
-    if ($cmd) { $outlookPath = $cmd.Path }
+function Get-Mailto() {
+    return 'mailto:' + $cfg.to +
+        '?subject=' + [Uri]::EscapeDataString([string]$cfg.subject) +
+        '&body=' + [Uri]::EscapeDataString([string]$cfg.body)
+}
 
-    if (-not $outlookPath) {
-        $reg = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\OUTLOOK.EXE'
-        if (Test-Path $reg) {
-            $regPath = (Get-ItemProperty -Path $reg -Name '(default)' -ErrorAction SilentlyContinue).'(default)'
-            if ($regPath -and (Test-Path -LiteralPath $regPath)) { $outlookPath = $regPath }
-        }
+# ---------------------------------------------------------------- New Outlook
+function Invoke-NewOutlook() {
+    $normSubject = Get-Norm $cfg.subject
+    # A distinctive slice of the subject, kept short because New Outlook truncates
+    # long compose-window titles with an ellipsis. 16 normalised chars is about
+    # "Payslip for Jul 2026" - specific enough that the Inbox/Mail main window
+    # cannot collide with it, short enough to survive truncation.
+    $needle = $normSubject
+    if ($needle.Length -gt 16) { $needle = $needle.Substring(0, 16) }
+    if ($needle.Length -lt 6) {
+        Write-Output 'INFO:subject too short to identify the compose window safely'
+        $needle = $null
     }
 
-    if (-not $outlookPath) {
-        $pf = [Environment]::GetEnvironmentVariable('ProgramFiles')
-        $pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
-        foreach ($base in @($pf, $pf86)) {
-            if (-not $base) { continue }
-            foreach ($rel in @(
-                'Microsoft Office\root\Office16\OUTLOOK.EXE',
-                'Microsoft Office\Office16\OUTLOOK.EXE',
-                'Microsoft Office\root\Office15\OUTLOOK.EXE',
-                'Microsoft Office\Office15\OUTLOOK.EXE',
-                'Microsoft Office\Office14\OUTLOOK.EXE'
-            )) {
-                $p = Join-Path $base $rel
-                if (Test-Path -LiteralPath $p) { $outlookPath = $p; break }
+    Start-Process (Get-Mailto) | Out-Null
+
+    if (-not $needle) {
+        Write-Output 'RESULT:MAILTO_NO_ATTACHMENT'
+        return
+    }
+
+    # New Outlook can cold-start; poll for its compose window.
+    $deadline = (Get-Date).AddSeconds(70)
+    $target = $null
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 700
+        $olk = Get-Process -Name 'olk' -ErrorAction SilentlyContinue
+        if (-not $olk) { continue }
+        $pids = @($olk | ForEach-Object { [uint32]$_.Id })
+
+        # Never target New Outlook's main window: pasting there would drop the file
+        # into the message list instead of this draft.
+        foreach ($w in [WinEnum]::Visible()) {
+            if ($pids -notcontains $w.Pid) { continue }
+            $nt = Get-Norm $w.Title
+            if (-not $nt.Contains($needle)) { continue }
+            if ($nt.StartsWith('inbox') -or $nt.StartsWith('mail') -or $nt.EndsWith('outlook')) { continue }
+            $target = $w
+            break
+        }
+        if ($target) { break }
+    }
+
+    if (-not $target) {
+        # Log what New Outlook did show, so a title-format change is diagnosable.
+        $olk = Get-Process -Name 'olk' -ErrorAction SilentlyContinue
+        if ($olk) {
+            $pids = @($olk | ForEach-Object { [uint32]$_.Id })
+            foreach ($w in [WinEnum]::Visible()) {
+                if ($pids -contains $w.Pid) { Write-Output ('INFO:olk window - ' + $w.Title) }
             }
-            if ($outlookPath) { break }
         }
+        Write-Output 'RESULT:NEWOUTLOOK_NO_COMPOSE'
+        return
     }
 
-    if ($outlookPath) {
-        $mailto = 'mailto:' + $cfg.to + '?subject=' + [Uri]::EscapeDataString($cfg.subject) + '&body=' + [Uri]::EscapeDataString($cfg.body)
-        Start-Process -FilePath $outlookPath -ArgumentList @('/c', 'ipm.note', '/m', $mailto, '/a', $cfg.attachment)
-        Write-Output 'RESULT:EXE_ATTACHED'
-        exit 0
+    Write-Output ('INFO:compose window - ' + $target.Title)
+
+    if ([WinEnum]::IsIconic($target.Handle)) {
+        [WinEnum]::ShowWindow($target.Handle, 9) | Out-Null   # SW_RESTORE
+        Start-Sleep -Milliseconds 400
     }
-} catch {
-    Write-Output "INFO:outlook.exe launch failed - $($_.Exception.Message)"
+
+    # Activating by exact title is more precise than by PID, which would grab
+    # New Outlook's main window instead of this compose window.
+    $shell = New-Object -ComObject WScript.Shell
+    for ($i = 0; $i -lt 5; $i++) {
+        [WinEnum]::SetForegroundWindow($target.Handle) | Out-Null
+        try { $shell.AppActivate($target.Title) | Out-Null } catch {}
+        Start-Sleep -Milliseconds 500
+        if ([WinEnum]::GetForegroundWindow() -eq $target.Handle) { break }
+    }
+
+    # Hard gate: never synthesise Ctrl+V unless the compose window really has focus.
+    $fg = [WinEnum]::GetForegroundWindow()
+    if ($fg -ne $target.Handle) {
+        Write-Output ('INFO:foreground is pid ' + [WinEnum]::PidOf($fg) + ', not the compose window')
+        Write-Output 'RESULT:NEWOUTLOOK_NO_FOCUS'
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $cfg.attachment)) {
+        Write-Output 'RESULT:NEWOUTLOOK_NO_FILE'
+        return
+    }
+
+    # Preserve a plain-text clipboard so the paste does not silently eat it.
+    $savedText = $null
+    try {
+        if ([System.Windows.Forms.Clipboard]::ContainsText()) {
+            $savedText = [System.Windows.Forms.Clipboard]::GetText()
+        }
+    } catch {}
+
+    try {
+        Set-Clipboard -LiteralPath $cfg.attachment
+    } catch {
+        Write-Output ('INFO:clipboard load failed - ' + $_.Exception.Message)
+        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
+        return
+    }
+
+    if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
+        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
+        return
+    }
+
+    # Position cursor in the body area of the compose window and click so
+    # WebView2's editable element gets real focus. SendKeys (keybd_event)
+    # is silently dropped by the WebView2 surface; only SendInput lands.
+    $rect = New-Object WinEnum+RECT
+    [WinEnum]::GetWindowRect($target.Handle, [ref]$rect) | Out-Null
+    $saved = New-Object WinEnum+POINT
+    [WinEnum]::GetCursorPos([ref]$saved) | Out-Null
+    # Click roughly at the vertical centre, 40% from the left — inside
+    # the body editor, well clear of the To/Subject/ribbon chrome.
+    $cx = [int]($rect.Left + ($rect.Right - $rect.Left) * 0.4)
+    $cy = [int]($rect.Top + ($rect.Bottom - $rect.Top) * 0.55)
+    [WinEnum]::SetCursorPos($cx, $cy) | Out-Null
+    Start-Sleep -Milliseconds 200
+    [WinEnum]::Click() | Out-Null
+    Start-Sleep -Milliseconds 400
+
+    # Ctrl+V via SendInput — this is accepted by the WebView2 surface.
+    [WinEnum]::CtrlKey(0x56) | Out-Null   # 0x56 = 'V'
+    Start-Sleep -Seconds 3
+
+    # Restore original cursor position.
+    [WinEnum]::SetCursorPos($saved.X, $saved.Y) | Out-Null
+
+    if ($savedText) {
+        try { Set-Clipboard -Value $savedText } catch {}
+    }
+
+    Write-Output 'RESULT:NEWOUTLOOK_PASTED'
 }
 
-# Method 3 — default mail handler. Cannot attach.
-try {
-    $mailto = 'mailto:' + $cfg.to + '?subject=' + [Uri]::EscapeDataString($cfg.subject) + '&body=' + [Uri]::EscapeDataString($cfg.body)
-    Start-Process $mailto
+# ------------------------------------------------------------ Classic Outlook
+function Invoke-ClassicOutlook() {
+    try {
+        $Outlook = New-Object -ComObject Outlook.Application
+        if ($Outlook) {
+            $Mail = $Outlook.CreateItem(0)
+            $Mail.To = $cfg.to
+            $Mail.Subject = $cfg.subject
+            $Mail.Body = $cfg.body
+            if (Test-Path -LiteralPath $cfg.attachment) {
+                $Mail.Attachments.Add($cfg.attachment) | Out-Null
+            }
+            $Mail.Display()
+            Write-Output 'RESULT:COM_ATTACHED'
+            return $true
+        }
+    } catch {
+        Write-Output ('INFO:COM unavailable - ' + $_.Exception.Message)
+    }
+    return $false
+}
+
+# --------------------------------------------------------------------- driver
+$newOutlookInstalled = $null -ne (Get-AppxPackage -Name 'Microsoft.OutlookForWindows' -ErrorAction SilentlyContinue)
+
+if ($mode -eq 'classic') {
+    if (Invoke-ClassicOutlook) { exit 0 }
+    Start-Process (Get-Mailto) | Out-Null
     Write-Output 'RESULT:MAILTO_NO_ATTACHMENT'
     exit 0
-} catch {
-    Write-Output "RESULT:FAILED - $($_.Exception.Message)"
-    exit 1
 }
+
+if ($mode -eq 'auto' -and -not $newOutlookInstalled) {
+    if (Invoke-ClassicOutlook) { exit 0 }
+}
+
+if ($newOutlookInstalled) {
+    Invoke-NewOutlook
+    exit 0
+}
+
+if (Invoke-ClassicOutlook) { exit 0 }
+Start-Process (Get-Mailto) | Out-Null
+Write-Output 'RESULT:MAILTO_NO_ATTACHMENT'
+exit 0
 `;
 
 /** Run the launcher and resolve with its RESULT marker. */
 function runOutlookLauncher(configPath) {
   return new Promise((resolve) => {
     const scriptPath = path.join(os.tmpdir(), `launch_outlook_${process.pid}_${Date.now()}.ps1`);
-    fs.writeFileSync(scriptPath, OUTLOOK_PS_SCRIPT, "utf-8");
+    // Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI, which would mangle any
+    // non-ASCII character the script picks up later. The BOM forces UTF-8.
+    fs.writeFileSync(scriptPath, "﻿" + OUTLOOK_PS_SCRIPT, "utf-8");
 
-    // Outlook can be cold-starting, which is slow; COM only returns once the
-    // compose window is up.
+    // Outlook can be cold-starting, which is slow: the New Outlook path polls up
+    // to 70s for its compose window before giving up, so allow headroom past that.
+    // -Sta is required for clipboard access (Set-Clipboard / CF_HDROP).
     exec(
-      `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" "${configPath}"`,
-      { timeout: 90000, windowsHide: true },
+      `powershell -NoProfile -NonInteractive -Sta -ExecutionPolicy Bypass -File "${scriptPath}" "${configPath}"`,
+      { timeout: 120000, windowsHide: true },
       (error, stdout, stderr) => {
         for (const f of [scriptPath, configPath]) {
           try { fs.unlinkSync(f); } catch {}
@@ -370,9 +595,69 @@ function runOutlookLauncher(configPath) {
   });
 }
 
+const OUTLOOK_MODES = new Set(["new", "classic", "auto"]);
+
+/**
+ * Turn the launcher's RESULT marker into what the user should be told.
+ *
+ * `attached` means the PDF is on the draft. `verified` distinguishes COM (which
+ * reports success from Outlook's own object model) from the New Outlook
+ * clipboard paste — that keystroke is delivered, but nothing lets us read back
+ * whether the app accepted it, so the UI asks the user to glance at the draft.
+ */
+function describeOutlookResult(result, fileName) {
+  const dragHint = `drag ${fileName} from your Downloads folder into the message`;
+
+  switch (result) {
+    case "COM_ATTACHED":
+      return {
+        attached: true,
+        verified: true,
+        message: `Outlook draft opened with ${fileName} attached.`,
+      };
+    case "NEWOUTLOOK_PASTED":
+      return {
+        attached: true,
+        verified: false,
+        message: `New Outlook opened and ${fileName} was pasted in as an attachment — please confirm it appears on the draft before sending.`,
+      };
+    case "NEWOUTLOOK_NO_COMPOSE":
+      return {
+        attached: false,
+        verified: false,
+        message: `New Outlook opened but its compose window could not be identified, so the PDF was not pasted. Please ${dragHint}.`,
+      };
+    case "NEWOUTLOOK_NO_FOCUS":
+      return {
+        attached: false,
+        verified: false,
+        message: `New Outlook's compose window never came to the foreground, so the paste was skipped rather than sent to another app. Please ${dragHint}.`,
+      };
+    case "NEWOUTLOOK_NO_CLIPBOARD":
+      return {
+        attached: false,
+        verified: false,
+        message: `The payslip could not be copied to the clipboard. Please ${dragHint}.`,
+      };
+    case "NEWOUTLOOK_NO_FILE":
+      return {
+        attached: false,
+        verified: false,
+        message: "The generated payslip could not be found on disk. Please try again.",
+      };
+    case "MAILTO_NO_ATTACHMENT":
+    default:
+      return {
+        attached: false,
+        verified: false,
+        message: `Mail composer opened, but it cannot take an attachment automatically. Please ${dragHint}.`,
+      };
+  }
+}
+
 /** POST /api/payroll/launch-outlook — open an Outlook draft with the PDF payslip attached */
 router.post("/launch-outlook", async (req, res) => {
-  const { employeeEmail, subject, emailBody, employeeId, period, employeeName, dept, role, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, watermarkText, earnings, deductions, gross, totalDeductions, net } = req.body;
+  const { employeeEmail, subject, emailBody, employeeId, period, employeeName, dept, role, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, watermarkText, earnings, deductions, gross, totalDeductions, net, mode } = req.body;
 
   if (!employeeEmail) {
     return res.status(400).json({ message: "Recipient email is required" });
@@ -421,12 +706,14 @@ router.post("/launch-outlook", async (req, res) => {
         subject: subject || `Payslip for ${period || ""}`,
         body: emailBody || "",
         attachment: path.win32.normalize(pdfPath),
+        // "new" drives New Outlook via the clipboard; "classic" uses COM.
+        mode: OUTLOOK_MODES.has(mode) ? mode : "new",
       }),
       "utf-8",
     );
 
     const { result, error } = await runOutlookLauncher(configPath);
-    const attached = result === "COM_ATTACHED" || result === "EXE_ATTACHED";
+    const outcome = describeOutlookResult(result, pdfFileName);
 
     if (result === "FAILED" || result === "UNKNOWN") {
       return res.status(500).json({
@@ -443,15 +730,13 @@ router.post("/launch-outlook", async (req, res) => {
 
     return res.json({
       success: true,
-      attached,
+      attached: outcome.attached,
+      verified: outcome.verified,
       pdfSaved: true,
       method: result,
       filePath: pdfPath,
       fileName: pdfFileName,
-      message: attached
-        ? `Outlook draft opened with ${pdfFileName} attached.`
-        : `Outlook composer opened. New Outlook can't accept attachments automatically — ` +
-          `drag ${pdfFileName} from your Downloads folder into the message.`,
+      message: outcome.message,
     });
   } catch (err) {
     console.error("[Launch Outlook Handler Error]:", err);

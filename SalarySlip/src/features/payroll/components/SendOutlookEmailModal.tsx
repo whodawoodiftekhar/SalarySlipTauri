@@ -181,22 +181,36 @@ ${companyLegal}
           ...payslipPayload(),
           employeeEmail: recipientEmail,
           subject,
+          // New Outlook (olk.exe) has no COM server, so the backend attaches the
+          // PDF by pasting it into the compose window.
+          mode: "new",
         }),
       });
 
       if (response.ok) {
         const data = (await response.json()) as {
           attached?: boolean;
+          verified?: boolean;
           message?: string;
           fileName?: string;
         };
 
-        if (data.attached) {
-          setSendSuccess(data.message || `Outlook draft opened with ${attachmentFileName} attached.`);
-        } else {
-          // Composer opened but New Outlook refuses programmatic attachments;
-          // the PDF is already in Downloads, so this is a hint, not an error.
+        if (data.attached && data.verified) {
+          // Classic Outlook COM — attachment confirmed by Outlook's own object model.
           setSendSuccess(
+            data.message || `Outlook draft opened with ${attachmentFileName} attached.`,
+          );
+        } else if (data.attached) {
+          // New Outlook paste — the keystroke was delivered but there's no API to
+          // confirm it landed, so ask the user to glance at the draft.
+          setSendSuccess(
+            data.message ||
+              `New Outlook draft opened and ${attachmentFileName} was pasted — please confirm it appears before sending.`,
+          );
+        } else {
+          // Composer opened but the PDF couldn't be pasted automatically;
+          // the PDF is already in Downloads — not a failure, just a to-do.
+          setSendError(
             data.message ||
               `Outlook composer opened. Drag ${attachmentFileName} from Downloads to attach it.`,
           );
@@ -330,7 +344,7 @@ ${companyLegal}
 
         {/* Information Callout */}
         <div className="rounded-xl bg-blue-50/70 border border-blue-200/60 p-3 text-[12px] text-blue-900 leading-snug">
-          💡 <b>Outlook Integration:</b> <b>Send via Outlook</b> opens a draft with the recipient, subject & body pre-filled and saves the PDF to your Downloads folder. On classic Outlook desktop the PDF is attached automatically; New Outlook blocks that, so drag the PDF into the compose window.
+          💡 <b>Outlook Integration:</b> <b>Send via Outlook</b> opens a New Outlook draft with the recipient, subject & body pre-filled, saves the PDF to your Downloads folder, and pastes it in as an attachment. New Outlook gives no confirmation that a pasted attachment landed — glance at the draft before sending, and if it's missing just drag the PDF in from Downloads.
         </div>
 
         {/* Action Buttons */}
