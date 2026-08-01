@@ -4,19 +4,37 @@ import path from "node:path";
 
 const currentDir = typeof __dirname !== "undefined" ? __dirname : path.resolve("src/lib");
 
-function getLogoPath(companyLogo) {
-  try {
-    if (companyLogo && fs.existsSync(companyLogo)) {
-      return companyLogo;
+const DEFAULT_COMMIT_LOGO_BASE64 =
+  "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";
+
+function getLogoSource(companyLogo) {
+  if (companyLogo && typeof companyLogo === "string" && companyLogo.trim()) {
+    if (companyLogo.startsWith("data:image/")) {
+      try {
+        const base64Data = companyLogo.replace(/^data:image\/\w+;base64,/, "");
+        return Buffer.from(base64Data, "base64");
+      } catch {}
     }
-  } catch {}
+    try {
+      if (fs.existsSync(companyLogo)) {
+        return companyLogo;
+      }
+    } catch {}
+  }
   
   const possiblePaths = [
     path.join(currentDir, "../assets/COMM-IT.png"),
     path.join(currentDir, "../assets/logo.png"),
+    path.join(currentDir, "../../assets/COMM-IT.png"),
     path.resolve("src/assets/COMM-IT.png"),
     path.resolve("src/assets/logo.png"),
+    path.resolve("assets/COMM-IT.png"),
+    path.resolve("dist/assets/COMM-IT.png"),
     path.resolve("../SalarySlip/src/assets/COMM-IT.png"),
+    path.resolve("../Backend/src/assets/COMM-IT.png"),
+    path.join(process.cwd(), "src/assets/COMM-IT.png"),
+    path.join(process.cwd(), "assets/COMM-IT.png"),
+    path.join(process.cwd(), "Backend/src/assets/COMM-IT.png"),
   ];
 
   for (const p of possiblePaths) {
@@ -24,7 +42,9 @@ function getLogoPath(companyLogo) {
       if (fs.existsSync(p)) return p;
     } catch {}
   }
-  return null;
+
+  // Fallback to embedded COMM-IT logo buffer for built apps (Tauri, Node, etc.)
+  return Buffer.from(DEFAULT_COMMIT_LOGO_BASE64, "base64");
 }
 
 function safeNum(val) {
@@ -91,11 +111,12 @@ export function createPayslipPdfBuffer({
       doc.moveTo(150, 30).lineTo(150, 117).stroke();
 
       // Left Logo Cell (x = 30 to 150, y = 30 to 117)
-      const logoPath = getLogoPath(companyLogo);
-      if (logoPath) {
+      const logoSource = getLogoSource(companyLogo);
+      if (logoSource) {
         try {
-          doc.image(logoPath, 35, 45, { fit: [110, 57], align: "center", valign: "center" });
+          doc.image(logoSource, 35, 45, { fit: [110, 57], align: "center", valign: "center" });
         } catch (imgErr) {
+          console.error("[PDF GENERATOR LOGO ERROR]:", imgErr?.stack || imgErr);
           doc.fillColor("#0078D4").fontSize(18).font("Helvetica-Bold").text("COMM-IT", 45, 55);
           doc.fillColor("#666666").fontSize(7).font("Helvetica").text("commitment to quality", 45, 76);
         }

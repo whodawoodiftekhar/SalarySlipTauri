@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Mail, Check, AlertCircle, Send, ExternalLink, Copy, X, Paperclip, Download } from "lucide-react";
+import { Mail, Check, AlertCircle, Send, Copy, X, Paperclip, Download } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { inr } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
@@ -66,9 +66,6 @@ ${companyLegal}
   // Mailto link for Outlook Desktop App
   const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBodyText)}`;
 
-  // Outlook Web Mailto compose link
-  const outlookWebUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(recipientEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBodyText)}`;
-
   const handleCopyBody = () => {
     navigator.clipboard.writeText(emailBodyText);
     setCopied(true);
@@ -96,6 +93,9 @@ ${companyLegal}
     totalDeductions: res.totalDeductions,
     net: res.net,
     watermarkText: company.watermarkText,
+    companyLogo: company.logoUrl,
+    companyName: company.legalName || company.name,
+    companyAddress: company.addressLines,
   });
 
   /** Read the server's error text; the route reports the real cause as JSON. */
@@ -342,33 +342,17 @@ ${companyLegal}
           </div>
         )}
 
-        {/* Information Callout */}
-        <div className="rounded-xl bg-blue-50/70 border border-blue-200/60 p-3 text-[12px] text-blue-900 leading-snug">
-          💡 <b>Outlook Integration:</b> <b>Send via Outlook</b> opens a New Outlook draft with the recipient, subject & body pre-filled, saves the PDF to your Downloads folder, and pastes it in as an attachment. New Outlook gives no confirmation that a pasted attachment landed — glance at the draft before sending, and if it's missing just drag the PDF in from Downloads.
-        </div>
-
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2.5 pt-1">
+        <div className="flex justify-center pt-1">
           {/* Direct Send via Outlook App */}
           <Button
             onClick={handleDirectSend}
             disabled={sending}
-            className="flex-1 min-w-[180px] bg-[#0078D4] hover:bg-[#005A9E] text-white py-3 text-[13.5px] font-bold shadow-md shadow-[#0078D4]/25 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full justify-center bg-[#0078D4] hover:bg-[#005A9E] text-white py-3 text-[13.5px] font-bold shadow-md shadow-[#0078D4]/25 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Send size={16} />{" "}
             {sending ? "Opening Outlook…" : "Send via Outlook & Download PDF"}
           </Button>
-
-          {/* Outlook Web Compose */}
-          <a
-            href={outlookWebUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setSendSuccess(`Opened Outlook Web composer for ${recipientEmail}`)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#0078D4] px-4 py-2.5 text-[13px] font-bold text-[#0078D4] hover:bg-[#0078D4]/10 transition cursor-pointer"
-          >
-            <ExternalLink size={15} /> Outlook Web
-          </a>
         </div>
       </div>
     </div>,

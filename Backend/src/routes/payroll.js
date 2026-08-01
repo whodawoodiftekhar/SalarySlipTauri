@@ -657,7 +657,7 @@ function describeOutlookResult(result, fileName) {
 
 /** POST /api/payroll/launch-outlook — open an Outlook draft with the PDF payslip attached */
 router.post("/launch-outlook", async (req, res) => {
-  const { employeeEmail, subject, emailBody, employeeId, period, employeeName, dept, role, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, watermarkText, earnings, deductions, gross, totalDeductions, net, mode } = req.body;
+  const { employeeEmail, subject, emailBody, employeeId, period, employeeName, dept, role, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, watermarkText, companyLogo, companyName, companyAddress, earnings, deductions, gross, totalDeductions, net, mode } = req.body;
 
   if (!employeeEmail) {
     return res.status(400).json({ message: "Recipient email is required" });
@@ -667,6 +667,7 @@ router.post("/launch-outlook", async (req, res) => {
   }
 
   try {
+    const settings = await getSettings();
     const safeName = (employeeName || employeeId || "Employee").replace(/[^a-zA-Z0-9]/g, "_");
     const pdfFileName = `${safeName}_${employeeId || ""}_Payslip_${(period || "Period").replace(/\s+/g, "_")}.pdf`;
 
@@ -688,7 +689,10 @@ router.post("/launch-outlook", async (req, res) => {
       bankName,
       bankAccountNo,
       pfAccountNo,
-      watermarkText,
+      companyLogo: companyLogo || settings?.company?.logoUrl,
+      companyName: companyName || settings?.company?.legalName || settings?.company?.name,
+      companyAddress: companyAddress || settings?.company?.addressLines,
+      watermarkText: watermarkText !== undefined ? watermarkText : settings?.company?.watermarkText,
       earnings,
       deductions,
       gross,
@@ -746,9 +750,10 @@ router.post("/launch-outlook", async (req, res) => {
 
 /** POST /api/payroll/generate-pdf — return binary PDF file stream for download */
 router.post("/generate-pdf", async (req, res) => {
-  const { employeeId, period, employeeName, dept, role, emailBody, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, earnings, deductions, gross, totalDeductions, net, watermarkText } = req.body;
+  const { employeeId, period, employeeName, dept, role, emailBody, netPay, pan, uan, doj, bankName, bankAccountNo, pfAccountNo, earnings, deductions, gross, totalDeductions, net, watermarkText, companyLogo, companyName, companyAddress } = req.body;
 
   try {
+    const settings = await getSettings();
     const pdfBuffer = await createPayslipPdfBuffer({
       employeeId,
       employeeName,
@@ -763,12 +768,15 @@ router.post("/generate-pdf", async (req, res) => {
       bankName,
       bankAccountNo,
       pfAccountNo,
+      companyLogo: companyLogo || settings?.company?.logoUrl,
+      companyName: companyName || settings?.company?.legalName || settings?.company?.name,
+      companyAddress: companyAddress || settings?.company?.addressLines,
+      watermarkText: watermarkText !== undefined ? watermarkText : settings?.company?.watermarkText,
       earnings,
       deductions,
       gross,
       totalDeductions,
       net,
-      watermarkText,
     });
 
     const safeName = (employeeName || employeeId || 'Employee').replace(/[^a-zA-Z0-9]/g, '_');
