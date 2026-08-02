@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { LOGO } from "@/shared/lib/branding";
 import { cn } from "@/shared/lib/cn";
@@ -15,7 +15,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "relative sticky top-0 flex h-screen flex-col overflow-visible border-r border-line bg-white px-[14px] py-[18px] transition-all duration-300",
+        "relative sticky top-0 z-[60] flex h-screen flex-col overflow-visible border-r border-line bg-white px-[14px] py-[18px] transition-all duration-300",
         collapsed ? "w-[64px] items-center px-[8px]" : "w-[236px]",
         "max-mob:z-20 max-mob:h-auto max-mob:w-full max-mob:flex-row max-mob:items-center max-mob:gap-[6px] max-mob:overflow-x-auto max-mob:px-3 max-mob:py-[10px]",
       )}
@@ -23,11 +23,11 @@ export function Sidebar() {
       {/* Toggle button on border edge */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute top-[20px] -right-[14px] z-[60] grid h-[28px] w-[28px] place-items-center border-none outline-none bg-transparent text-ash hover:text-ink cursor-pointer transition-all duration-200 max-mob:hidden"
+        className="absolute top-[22px] -right-[13px] z-[60] flex h-[26px] w-[26px] items-center justify-center rounded-full border border-line bg-white text-ash shadow-sm transition-all duration-200 hover:bg-hover hover:text-accent hover:border-accent/40 max-mob:hidden"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+        {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
       </button>
 
       {/* Logo & subtitle */}

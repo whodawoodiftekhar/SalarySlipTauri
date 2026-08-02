@@ -16,7 +16,7 @@ import type { EmployeeFormState } from "./types";
 export default function AddEmployeePage() {
   const navigate = useNavigate();
   const { addEmployee, saving } = useEmployees();
-  const { departments, company, payPeriod, slipDefaults } = useSettings();
+  const { departments, company, payPeriod } = useSettings();
   const { items: catalogItems } = useCatalog();
 
   const [autoCode, setAutoCode] = useState("C11032");
