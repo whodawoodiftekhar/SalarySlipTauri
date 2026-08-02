@@ -73,14 +73,29 @@ export function compute(components, daysInMonth, daysPayable) {
 }
 
 /** Dynamically builds an employee salary structure using components directly from the database catalog. */
-export const makeStructure = (e, dbComponents = []) => {
-  return dbComponents.map((comp) => {
+export const makeStructure = (e = {}, dbComponents = []) => {
+  const catalogToUse =
+    dbComponents.length > 0
+      ? dbComponents
+      : [
+          { code: "BASIC", name: "Basic Salary", group: "earning", calc: "Flat ₹" },
+          { code: "HRA", name: "HRA", group: "earning", calc: "% of Basic", value: 50 },
+          { code: "SPECIAL", name: "Special Allowance", group: "earning", calc: "Flat ₹" },
+          { code: "ONSITE", name: "Onsite Incentive", group: "earning", calc: "Flat ₹" },
+          { code: "TRANSPORT", name: "Transport Allowance", group: "earning", calc: "Flat ₹" },
+          { code: "PROJECT", name: "Project Allowance", group: "earning", calc: "Flat ₹" },
+          { code: "LTA", name: "LTA", group: "earning", calc: "Flat ₹" },
+          { code: "MEDICAL", name: "Medical Reimbursement", group: "earning", calc: "Flat ₹" },
+          { code: "PF", name: "Provident Fund", group: "deduction", calc: "PF (statutory)" },
+          { code: "TDS", name: "TDS", group: "deduction", calc: "Flat ₹" },
+        ];
+
+  const list = catalogToUse.map((comp) => {
     const codeUpper = (comp.code || comp.id || "").toUpperCase();
     const isBasic = codeUpper === "BASIC" || (comp.name && comp.name.toLowerCase().includes("basic"));
     const group = (comp.group || "").toLowerCase().includes("deduct") ? "deduction" : "earning";
     const id = (comp.id || comp.code || comp.name || "").toLowerCase().replace(/\s+/g, "_");
 
-    // Determine calculation method directly from DB component 'calc' field
     let calc = "flat";
     const cStr = String(comp.calc || "").toLowerCase();
     if (cStr.includes("pf") || cStr.includes("statutory")) {
@@ -91,7 +106,6 @@ export const makeStructure = (e, dbComponents = []) => {
       calc = "flat";
     }
 
-    // Determine component value dynamically from input or DB catalog component
     let value = 0;
     if (isBasic) {
       value = num(e?.basic);
@@ -99,6 +113,8 @@ export const makeStructure = (e, dbComponents = []) => {
       value = num(e[id]);
     } else if (comp.code && comp.code.toLowerCase() in (e || {})) {
       value = num(e[comp.code.toLowerCase()]);
+    } else if ((id === "project" || id === "project_allowance") && "projectAllowance" in (e || {})) {
+      value = num(e.projectAllowance);
     } else {
       const extractedPct = typeof comp.calc === "string" ? num(comp.calc.replace(/[^0-9.]/g, "")) : 0;
       value = num(comp.value ?? (calc === "pct_basic" ? extractedPct : 0));
@@ -114,4 +130,37 @@ export const makeStructure = (e, dbComponents = []) => {
       ...(isBasic ? { isBasic: true } : {}),
     };
   });
+
+  const extras = [
+    { key: "transport", name: "Transport Allowance", group: "earning", calc: "flat" },
+    { key: "projectAllowance", name: "Project Allowance", group: "earning", calc: "flat" },
+    { key: "lta", name: "LTA", group: "earning", calc: "flat" },
+    { key: "medical", name: "Medical Allowance", group: "earning", calc: "flat" },
+    { key: "pf", name: "Provident Fund", group: "deduction", calc: "statutory_pf" },
+  ];
+
+  extras.forEach((x) => {
+    const val = num(e?.[x.key]);
+    if (val > 0) {
+      const exists = list.some(
+        (c) =>
+          c.id === x.key ||
+          c.id === x.key.toLowerCase() ||
+          c.name.toLowerCase().includes(x.key.toLowerCase()) ||
+          (x.key === "projectAllowance" && (c.id === "project" || c.name.toLowerCase().includes("project"))),
+      );
+      if (!exists) {
+        list.push({
+          id: x.key === "projectAllowance" ? "project" : x.key,
+          name: x.name,
+          group: x.group,
+          calc: x.calc,
+          value: val,
+          prorate: x.group === "earning",
+        });
+      }
+    }
+  });
+
+  return list;
 };

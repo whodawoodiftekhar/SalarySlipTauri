@@ -19,6 +19,8 @@ export default function AddEmployeePage() {
   const { departments, company, payPeriod, slipDefaults } = useSettings();
   const { items: catalogItems } = useCatalog();
 
+  const [autoCode, setAutoCode] = useState("C11032");
+
   const [f, setF] = useState<EmployeeFormState>({
     name: "",
     email: "",
@@ -28,6 +30,11 @@ export default function AddEmployeePage() {
     basic: "",
     special: "",
     onsite: "",
+    transport: "",
+    projectAllowance: "",
+    lta: "",
+    medical: "",
+    pf: "",
     tds: "",
     bankName: "",
     bankAccountNo: "",
@@ -41,7 +48,7 @@ export default function AddEmployeePage() {
   useEffect(() => {
     let cancelled = false;
     employeeService.nextCode().then((code) => {
-      if (!cancelled) setF((prev) => (prev.id ? prev : { ...prev, id: code }));
+      if (!cancelled && code) setAutoCode(code);
     });
     return () => {
       cancelled = true;
@@ -61,6 +68,11 @@ export default function AddEmployeePage() {
         basic: num(f.basic),
         special: num(f.special),
         onsite: num(f.onsite),
+        transport: num(f.transport),
+        projectAllowance: num(f.projectAllowance),
+        lta: num(f.lta),
+        medical: num(f.medical),
+        pf: num(f.pf),
         tds: num(f.tds),
       },
       catalogItems,
@@ -70,8 +82,9 @@ export default function AddEmployeePage() {
   );
 
   const save = async () => {
+    const finalId = f.id.trim() || autoCode;
     const employee = await addEmployee({
-      id: f.id.trim(),
+      id: finalId,
       name: f.name.trim(),
       email: f.email.trim(),
       dept: f.dept,
@@ -79,6 +92,11 @@ export default function AddEmployeePage() {
       basic: num(f.basic),
       special: num(f.special),
       onsite: num(f.onsite),
+      transport: num(f.transport),
+      projectAllowance: num(f.projectAllowance),
+      lta: num(f.lta),
+      medical: num(f.medical),
+      pf: num(f.pf),
       tds: num(f.tds),
       bankName: f.bankName.trim(),
       bankAccountNo: f.bankAccountNo.trim(),
@@ -133,7 +151,12 @@ export default function AddEmployeePage() {
                 />
               </Field>
               <Field label="Employee Code *">
-                <input className={FIELD_INPUT} value={f.id} onChange={set("id")} />
+                <input
+                  className={FIELD_INPUT}
+                  value={f.id}
+                  onChange={set("id")}
+                  placeholder={`e.g. ${autoCode}`}
+                />
               </Field>
               <Field label="Department">
                 <select className={FIELD_INPUT} value={f.dept} onChange={set("dept")}>
@@ -210,6 +233,42 @@ export default function AddEmployeePage() {
                   placeholder="0"
                 />
               </Field>
+              <Field label="Transport Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.transport}
+                  onChange={set("transport")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Project Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.projectAllowance}
+                  onChange={set("projectAllowance")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="LTA (Leave Travel)">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.lta}
+                  onChange={set("lta")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Medical Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.medical}
+                  onChange={set("medical")}
+                  placeholder="0"
+                />
+              </Field>
               <Field label="Onsite Incentive">
                 <input
                   className={FIELD_INPUT}
@@ -219,19 +278,19 @@ export default function AddEmployeePage() {
                   placeholder="0"
                 />
               </Field>
-              <Field label="TDS (Monthly Deduction)">
+              <Field label="PF (Provident Fund)">
                 <input
                   className={FIELD_INPUT}
                   type="number"
-                  value={f.tds}
-                  onChange={set("tds")}
+                  value={f.pf}
+                  onChange={set("pf")}
                   placeholder="0"
                 />
               </Field>
             </div>
 
             <p className="mt-3 text-[11.5px] leading-relaxed text-mist">
-              * HRA, Transport, Medical, PF, and Professional Tax will be attached automatically based on default company structure.
+              * HRA and other components will be attached automatically based on your company structure.
             </p>
           </div>
 
@@ -286,7 +345,7 @@ export default function AddEmployeePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">BANK NAME</span>
-                <b className="text-right text-ink font-semibold">{f.bankName || slipDefaults.bankName}</b>
+                <b className="text-right text-ink font-semibold">{f.bankName || "—"}</b>
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">DEPARTMENT</span>
@@ -294,7 +353,7 @@ export default function AddEmployeePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">BANK ACCOUNT</span>
-                <b className="text-right text-ink font-semibold">{f.bankAccountNo || slipDefaults.bankAccountNo}</b>
+                <b className="text-right text-ink font-semibold">{f.bankAccountNo || "—"}</b>
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">DAYS PAYABLE</span>
@@ -302,7 +361,7 @@ export default function AddEmployeePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">PF ACCOUNT</span>
-                <b className="text-right text-ink font-semibold">{f.pfAccountNo || slipDefaults.pfAccountNo}</b>
+                <b className="text-right text-ink font-semibold">{f.pfAccountNo || "—"}</b>
               </div>
             </div>
 

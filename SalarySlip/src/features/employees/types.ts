@@ -15,6 +15,11 @@ export interface EmployeeFormState {
   basic: string;
   special: string;
   onsite: string;
+  transport: string;
+  projectAllowance: string;
+  lta: string;
+  medical: string;
+  pf: string;
   tds: string;
   bankName: string;
   bankAccountNo: string;

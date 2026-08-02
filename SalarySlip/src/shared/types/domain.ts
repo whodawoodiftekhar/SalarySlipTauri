@@ -43,6 +43,11 @@ export interface Employee {
   special: number;
   tds: number;
   onsite: number;
+  transport?: number;
+  projectAllowance?: number;
+  lta?: number;
+  medical?: number;
+  pf?: number;
   bankName?: string;
   bankAccountNo?: string;
   pfAccountNo?: string;
