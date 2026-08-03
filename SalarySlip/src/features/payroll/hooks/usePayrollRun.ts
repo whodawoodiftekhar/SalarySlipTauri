@@ -27,7 +27,12 @@ export function usePayrollRun(employee: Employee) {
   const [dim, setDim] = useState(String(standardDays));
   const [dpay, setDpay] = useState(String(standardDays));
 
-  const comps = useMemo(() => draft ?? data ?? [], [draft, data]);
+  const initialComps = useMemo(() => {
+    if (!data) return [];
+    return data.map((c) => ({ ...c, prorate: false }));
+  }, [data]);
+
+  const comps = useMemo(() => draft ?? initialComps, [draft, initialComps]);
 
   const res = useMemo(
     () => compute(comps, num(dim), num(dpay)),
@@ -36,29 +41,42 @@ export function usePayrollRun(employee: Employee) {
 
   const update = useCallback(
     (id: string, patch: Partial<SalaryComponent>) =>
-      setDraft(comps.map((c) => (c.id === id ? { ...c, ...patch } : c))),
-    [comps],
+      setDraft((prev) =>
+        (prev ?? initialComps).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      ),
+    [initialComps],
+  );
+
+  const updateBulk = useCallback(
+    (ids: string[], patch: Partial<SalaryComponent>) =>
+      setDraft((prev) =>
+        (prev ?? initialComps).map((c) =>
+          ids.includes(c.id) ? { ...c, ...patch } : c,
+        ),
+      ),
+    [initialComps],
   );
 
   const remove = useCallback(
-    (id: string) => setDraft(comps.filter((c) => c.id !== id)),
-    [comps],
+    (id: string) =>
+      setDraft((prev) => (prev ?? initialComps).filter((c) => c.id !== id)),
+    [initialComps],
   );
 
   const add = useCallback(
     (group: ComponentGroup) =>
-      setDraft([
-        ...comps,
+      setDraft((prev) => [
+        ...(prev ?? initialComps),
         {
           id: `c${Date.now()}`,
           name: group === "earning" ? "New earning" : "New deduction",
           group,
           calc: "flat",
           value: 0,
-          prorate: group === "earning",
+          prorate: false,
         },
       ]),
-    [comps],
+    [initialComps],
   );
 
   const amountOf = useCallback(
@@ -66,6 +84,21 @@ export function usePayrollRun(employee: Employee) {
       [...res.earnings, ...res.deductions].find((r) => r.id === id)?.amount ?? 0,
     [res],
   );
+
+  const [savingStructure, setSavingStructure] = useState(false);
+
+  const saveStructure = useCallback(async () => {
+    if (!comps) return;
+    setSavingStructure(true);
+    try {
+      const updated = await payrollService.saveStructure(employee.id, comps);
+      setDraft(null);
+      await refetch();
+      return updated;
+    } finally {
+      setSavingStructure(false);
+    }
+  }, [comps, employee.id, refetch]);
 
   return {
     comps,
@@ -78,8 +111,12 @@ export function usePayrollRun(employee: Employee) {
     dpay,
     setDpay,
     update,
+    updateBulk,
     remove,
     add,
     amountOf,
+    saveStructure,
+    savingStructure,
+    isDirty: draft !== null,
   };
 }

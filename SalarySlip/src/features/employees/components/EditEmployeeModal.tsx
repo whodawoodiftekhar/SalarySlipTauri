@@ -29,6 +29,11 @@ export function EditEmployeeModal({
     basic: String(employee.basic ?? 0),
     special: String(employee.special ?? 0),
     onsite: String(employee.onsite ?? 0),
+    transport: String(employee.transport ?? 0),
+    projectAllowance: String(employee.projectAllowance ?? 0),
+    lta: String(employee.lta ?? 0),
+    medical: String(employee.medical ?? 0),
+    pf: String(employee.pf ?? 0),
     tds: String(employee.tds ?? 0),
     bankName: employee.bankName ?? "",
     bankAccountNo: employee.bankAccountNo ?? "",
@@ -55,6 +60,11 @@ export function EditEmployeeModal({
       basic: num(f.basic),
       special: num(f.special),
       onsite: num(f.onsite),
+      transport: num(f.transport),
+      projectAllowance: num(f.projectAllowance),
+      lta: num(f.lta),
+      medical: num(f.medical),
+      pf: num(f.pf),
       tds: num(f.tds),
       bankName: f.bankName.trim(),
       bankAccountNo: f.bankAccountNo.trim(),
@@ -190,6 +200,42 @@ export function EditEmployeeModal({
                   placeholder="0"
                 />
               </Field>
+              <Field label="Transport Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.transport}
+                  onChange={set("transport")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Project Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.projectAllowance}
+                  onChange={set("projectAllowance")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="LTA (Leave Travel)">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.lta}
+                  onChange={set("lta")}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Medical Allowance">
+                <input
+                  className={FIELD_INPUT}
+                  type="number"
+                  value={f.medical}
+                  onChange={set("medical")}
+                  placeholder="0"
+                />
+              </Field>
               <Field label="Onsite Incentive">
                 <input
                   className={FIELD_INPUT}
@@ -199,12 +245,12 @@ export function EditEmployeeModal({
                   placeholder="0"
                 />
               </Field>
-              <Field label="TDS (Monthly Deduction)">
+              <Field label="PF (Provident Fund)">
                 <input
                   className={FIELD_INPUT}
                   type="number"
-                  value={f.tds}
-                  onChange={set("tds")}
+                  value={f.pf}
+                  onChange={set("pf")}
                   placeholder="0"
                 />
               </Field>

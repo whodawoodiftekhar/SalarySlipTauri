@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { Calendar, Download, FileSpreadsheet, X } from "lucide-react";
 import { useState } from "react";
+import { useCatalog } from "@/features/catalog/hooks/useCatalog";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
@@ -17,6 +18,17 @@ const MONTHS = Array.from({ length: 12 }, (_, i) =>
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 11 }, (_, i) => String(currentYear - 5 + i));
 
+function getColLetter(colIdx: number): string {
+  let letter = "";
+  let temp = colIdx;
+  while (temp > 0) {
+    const mod = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    temp = Math.floor((temp - 1) / 26);
+  }
+  return letter;
+}
+
 export function ExportExcelModal({
   roster,
   onClose,
@@ -25,6 +37,7 @@ export function ExportExcelModal({
   onClose: () => void;
 }) {
   const { departments, company } = useSettings();
+  const { items: catalogItems } = useCatalog();
 
   const [fromMonth, setFromMonth] = useState("Jan");
   const [fromYear, setFromYear] = useState(String(currentYear));
@@ -45,48 +58,128 @@ export function ExportExcelModal({
   const totalGross = filteredRoster.reduce((s, e) => s + e.gross, 0);
   const totalNet = filteredRoster.reduce((s, e) => s + e.net, 0);
 
+  /** Build dynamic lists of earnings and deductions across catalog and roster */
+  const buildComponentLists = () => {
+    const earningsMap = new Map<string, string>();
+    const deductionsMap = new Map<string, string>();
+
+    // Preferred default order
+    const defaultEarnings = [
+      { id: "basic", name: "Basic Salary" },
+      { id: "hra", name: "HRA" },
+      { id: "transport", name: "Transport Allowance" },
+      { id: "special", name: "Special Allowance" },
+      { id: "medical", name: "Medical Reimbursement" },
+      { id: "onsite", name: "Onsite Incentive" },
+    ];
+
+    const defaultDeductions = [
+      { id: "pf", name: "PF Deduction" },
+      { id: "pt", name: "Professional Tax" },
+      { id: "tds", name: "TDS Tax" },
+    ];
+
+    defaultEarnings.forEach((item) => earningsMap.set(item.id.toLowerCase(), item.name));
+    defaultDeductions.forEach((item) => deductionsMap.set(item.id.toLowerCase(), item.name));
+
+    // Include components from db catalog
+    (catalogItems || []).forEach((item) => {
+      const codeKey = (item.code || "").toLowerCase();
+      const nameKey = (item.name || "").toLowerCase();
+      if (item.group === "earning") {
+        if (!earningsMap.has(codeKey) && !earningsMap.has(nameKey)) {
+          earningsMap.set(codeKey, item.name);
+        }
+      } else {
+        if (!deductionsMap.has(codeKey) && !deductionsMap.has(nameKey)) {
+          deductionsMap.set(codeKey, item.name);
+        }
+      }
+    });
+
+    // Include any dynamic components present on roster entries
+    roster.forEach((e) => {
+      (e.earnings || []).forEach((c) => {
+        const idKey = (c.id || c.name || "").toLowerCase();
+        if (!Array.from(earningsMap.keys()).some((k) => k === idKey || earningsMap.get(k)?.toLowerCase() === c.name.toLowerCase())) {
+          earningsMap.set(idKey, c.name);
+        }
+      });
+      (e.deductions || []).forEach((c) => {
+        const idKey = (c.id || c.name || "").toLowerCase();
+        if (!Array.from(deductionsMap.keys()).some((k) => k === idKey || deductionsMap.get(k)?.toLowerCase() === c.name.toLowerCase())) {
+          deductionsMap.set(idKey, c.name);
+        }
+      });
+    });
+
+    return {
+      earningsList: Array.from(earningsMap.entries()).map(([id, name]) => ({ id, name })),
+      deductionsList: Array.from(deductionsMap.entries()).map(([id, name]) => ({ id, name })),
+    };
+  };
+
+  const getCompAmount = (
+    components: { id: string; name: string; amount: number }[] | undefined,
+    targetId: string,
+    targetName: string,
+    fallbackVal?: number,
+  ): number => {
+    if (components && components.length > 0) {
+      const found = components.find(
+        (c) =>
+          (c.id && c.id.toLowerCase() === targetId.toLowerCase()) ||
+          (c.name && c.name.toLowerCase() === targetName.toLowerCase()),
+      );
+      if (found !== undefined && found.amount !== undefined) {
+        return found.amount;
+      }
+    }
+    return fallbackVal ?? 0;
+  };
+
   /**
    * Generates a 100% styled native XLSX workbook using ExcelJS:
-   * - Merged Title Header Banner ("COMM-IT INDIA PVT. LTD. - SALARY DETAILS")
-   * - COMM-IT Logo Brand Navy Blue (#0F2537) & Royal Blue (#1E3A8A) Background Fills
-   * - Centered, bold, white text styling across headers
-   * - Auto-fit column widths (no text cut-off!)
-   * - Text string formatting for Bank/PF account numbers (prevents 4.3E+14 scientific notation)
-   * - Opens directly in Microsoft Excel with ZERO warnings/prompts!
+   * - Dynamically includes ALL earnings and deductions components!
+   * - Merged Title Header Banner
+   * - Brand Navy Blue & Royal Blue Fills
+   * - Auto-fit column widths
+   * - String formatting for Bank/PF account numbers
    */
   const handleExportStyledExcel = async () => {
+    const { earningsList, deductionsList } = buildComponentLists();
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "COMM-IT Payroll Engine";
     workbook.created = new Date();
 
     const worksheet = workbook.addWorksheet("Salary Details");
 
-    // 1. Configure Auto-Fit Column Widths
-    worksheet.columns = [
-      { key: "col1", width: 16 },  // Employee Code
-      { key: "col2", width: 26 },  // Employee Name
-      { key: "col3", width: 16 },  // Department
-      { key: "col4", width: 26 },  // Designation
-      { key: "col5", width: 20 },  // Bank Name
-      { key: "col6", width: 24 },  // Bank Account No
-      { key: "col7", width: 22 },  // PF Account No
-      { key: "col8", width: 18 },  // Basic Salary
-      { key: "col9", width: 15 },  // HRA
-      { key: "col10", width: 24 }, // Transport Allowance
-      { key: "col11", width: 22 }, // Special Allowance
-      { key: "col12", width: 26 }, // Medical Reimbursement
-      { key: "col13", width: 22 }, // Onsite Incentive
-      { key: "col14", width: 20 }, // Gross Salary
-      { key: "col15", width: 18 }, // PF Deduction
-      { key: "col16", width: 20 }, // Professional Tax
-      { key: "col17", width: 16 }, // TDS Tax
-      { key: "col18", width: 20 }, // Total Deductions
-      { key: "col19", width: 24 }, // Net Take-Home Salary
-      { key: "col20", width: 24 }, // Export Date Range
+    const headerTitles = [
+      "Employee Code",
+      "Employee Name",
+      "Department",
+      "Designation",
+      "Bank Name",
+      "Bank Account No",
+      "PF Account No",
+      ...earningsList.map((item) => `${item.name} (₹)`),
+      "Gross Salary (₹)",
+      ...deductionsList.map((item) => `${item.name} (₹)`),
+      "Total Deductions (₹)",
+      "Net Take-Home Salary (₹)",
+      "Export Date Range",
     ];
 
-    // 2. Row 1: COMM-IT Company Header Banner (Merged & Centered in Navy Blue #0F2537)
-    worksheet.mergeCells("A1:T1");
+    const lastColLetter = getColLetter(headerTitles.length);
+
+    // 1. Configure Auto-Fit Column Widths
+    worksheet.columns = headerTitles.map((title) => ({
+      width: Math.max(16, title.length + 4),
+    }));
+
+    // 2. Row 1: COMM-IT Company Header Banner
+    worksheet.mergeCells(`A1:${lastColLetter}1`);
     const titleCell = worksheet.getCell("A1");
     titleCell.value = "COMM-IT INDIA PVT. LTD.";
     titleCell.font = { name: "Segoe UI", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
@@ -94,8 +187,8 @@ export function ExportExcelModal({
     titleCell.alignment = { vertical: "middle", horizontal: "center" };
     worksheet.getRow(1).height = 42;
 
-    // 3. Row 2: Subheader (Merged & Centered in Royal Blue #1E3A8A)
-    worksheet.mergeCells("A2:T2");
+    // 3. Row 2: Subheader
+    worksheet.mergeCells(`A2:${lastColLetter}2`);
     const subTitleCell = worksheet.getCell("A2");
     subTitleCell.value = "EMPLOYEE SALARY & PAYROLL DETAILS REPORT";
     subTitleCell.font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FF93C5FD" } };
@@ -103,8 +196,8 @@ export function ExportExcelModal({
     subTitleCell.alignment = { vertical: "middle", horizontal: "center" };
     worksheet.getRow(2).height = 28;
 
-    // 4. Row 3: Filter Metadata Bar (Merged & Centered in Slate #F1F5F9)
-    worksheet.mergeCells("A3:T3");
+    // 4. Row 3: Filter Metadata Bar
+    worksheet.mergeCells(`A3:${lastColLetter}3`);
     const metaCell = worksheet.getCell("A3");
     metaCell.value = `Date Range: ${fromPeriod} to ${toPeriod}   |   Department: ${selectedDept}   |   Total Net Payout: ₹${inr0(totalNet)}`;
     metaCell.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FF334155" } };
@@ -115,32 +208,12 @@ export function ExportExcelModal({
     // Row 4: Blank Separator
     worksheet.getRow(4).height = 10;
 
-    // 5. Row 5: Column Headers (Navy Blue #0F2537, Centered/Right-aligned, White Bold text)
-    const headerTitles = [
-      "Employee Code",
-      "Employee Name",
-      "Department",
-      "Designation",
-      "Bank Name",
-      "Bank Account No",
-      "PF Account No",
-      "Basic Salary (₹)",
-      "HRA (₹)",
-      "Transport Allowance (₹)",
-      "Special Allowance (₹)",
-      "Medical Reimbursement (₹)",
-      "Onsite Incentive (₹)",
-      "Gross Salary (₹)",
-      "PF Deduction (₹)",
-      "Professional Tax (₹)",
-      "TDS Tax (₹)",
-      "Total Deductions (₹)",
-      "Net Take-Home Salary (₹)",
-      "Export Date Range",
-    ];
-
+    // 5. Row 5: Column Headers
     const headerRow = worksheet.getRow(5);
     headerRow.height = 32;
+
+    const grossColIdx = 7 + earningsList.length;
+    const netColIdx = headerTitles.length - 2;
 
     headerTitles.forEach((title, colIdx) => {
       const cell = headerRow.getCell(colIdx + 1);
@@ -149,7 +222,7 @@ export function ExportExcelModal({
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F2537" } };
       cell.alignment = {
         vertical: "middle",
-        horizontal: colIdx >= 7 && colIdx <= 18 ? "right" : "center",
+        horizontal: colIdx >= 7 && colIdx <= headerTitles.length - 2 ? "right" : "center",
       };
       cell.border = {
         top: { style: "thin", color: { argb: "FF1E293B" } },
@@ -161,16 +234,12 @@ export function ExportExcelModal({
 
     // 6. Data Rows
     filteredRoster.forEach((e, rIdx) => {
-      const basic = e.earnings?.find((c) => c.id === "basic")?.amount ?? e.basic ?? 0;
-      const hra = e.earnings?.find((c) => c.id === "hra")?.amount ?? 0;
-      const transport = e.earnings?.find((c) => c.id === "transport")?.amount ?? 0;
-      const special = e.earnings?.find((c) => c.id === "special")?.amount ?? e.special ?? 0;
-      const medical = e.earnings?.find((c) => c.id === "medical")?.amount ?? 0;
-      const onsite = e.earnings?.find((c) => c.id === "onsite")?.amount ?? e.onsite ?? 0;
-
-      const pf = e.deductions?.find((c) => c.id === "pf")?.amount ?? 0;
-      const pt = e.deductions?.find((c) => c.id === "pt")?.amount ?? 0;
-      const tds = e.deductions?.find((c) => c.id === "tds")?.amount ?? e.tds ?? 0;
+      const earningVals = earningsList.map((item) =>
+        getCompAmount(e.earnings, item.id, item.name, (e as any)[item.id]),
+      );
+      const deductionVals = deductionsList.map((item) =>
+        getCompAmount(e.deductions, item.id, item.name, (e as any)[item.id]),
+      );
 
       const rowValues = [
         String(e.id),
@@ -178,18 +247,11 @@ export function ExportExcelModal({
         e.dept,
         e.role,
         e.bankName || "-",
-        String(e.bankAccountNo || "-"), // String format prevents 4.3E+14
+        String(e.bankAccountNo || "-"),
         String(e.pfAccountNo || "-"),
-        basic,
-        hra,
-        transport,
-        special,
-        medical,
-        onsite,
+        ...earningVals,
         e.gross,
-        pf,
-        pt,
-        tds,
+        ...deductionVals,
         e.totalDeductions,
         e.net,
         `${fromPeriod} to ${toPeriod}`,
@@ -206,19 +268,20 @@ export function ExportExcelModal({
         cell.value = val;
         cell.font = { name: "Segoe UI", size: 9.5, color: { argb: "FF1E293B" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgHex } };
-        
-        // Alignments & Number formatting
-        if (colIdx >= 7 && colIdx <= 18) {
+
+        if (colIdx >= 7 && colIdx <= headerTitles.length - 2) {
           cell.alignment = { vertical: "middle", horizontal: "right" };
           cell.numFmt = "₹#,##0.00";
-        } else if (colIdx === 0 || colIdx === 19) {
+        } else if (colIdx === 0 || colIdx === headerTitles.length - 1) {
           cell.alignment = { vertical: "middle", horizontal: "center" };
         } else {
           cell.alignment = { vertical: "middle", horizontal: "left" };
         }
 
         if (colIdx === 0) cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FF0F2537" } };
-        if (colIdx === 13 || colIdx === 18) cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FF0F2537" } };
+        if (colIdx === grossColIdx || colIdx === netColIdx) {
+          cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FF0F2537" } };
+        }
 
         cell.border = {
           top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -241,7 +304,10 @@ export function ExportExcelModal({
     const summaryRow = worksheet.getRow(summaryRowNum);
     summaryRow.height = 28;
 
-    for (let c = 8; c <= 20; c++) {
+    const totalDeductColIdx = 8 + earningsList.length + deductionsList.length; // 0-indexed: 8 + e + d
+    const dateColIdx = headerTitles.length; // 1-indexed: last column
+
+    for (let c = 8; c <= headerTitles.length; c++) {
       const cell = summaryRow.getCell(c);
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
       cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF0F2537" } };
@@ -251,19 +317,39 @@ export function ExportExcelModal({
         bottom: { style: "double", color: { argb: "FF0F2537" } },
       };
 
-      if (c === 14) {
+      if (c === grossColIdx + 1) {
         cell.value = totalGross;
         cell.numFmt = "₹#,##0.00";
-      } else if (c === 19) {
+      } else if (c === netColIdx + 1) {
         cell.value = totalNet;
         cell.numFmt = "₹#,##0.00";
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F2537" } };
         cell.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
-      } else if (c === 20) {
+      } else if (c === totalDeductColIdx + 1) {
+        const totalDeductionsSum = filteredRoster.reduce((s, e) => s + e.totalDeductions, 0);
+        cell.value = totalDeductionsSum;
+        cell.numFmt = "₹#,##0.00";
+      } else if (c === dateColIdx) {
         cell.value = `${fromPeriod} - ${toPeriod}`;
         cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
-        cell.value = "-";
+        // Dynamic column sum for individual earnings and deductions
+        const colIdxZeroBased = c - 1;
+        if (colIdxZeroBased >= 7 && colIdxZeroBased < grossColIdx) {
+          const earningIdx = colIdxZeroBased - 7;
+          const target = earningsList[earningIdx];
+          const sum = filteredRoster.reduce((s, e) => s + getCompAmount(e.earnings, target.id, target.name, (e as any)[target.id]), 0);
+          cell.value = sum;
+          cell.numFmt = "₹#,##0.00";
+        } else if (colIdxZeroBased > grossColIdx && colIdxZeroBased < totalDeductColIdx) {
+          const deductIdx = colIdxZeroBased - (grossColIdx + 1);
+          const target = deductionsList[deductIdx];
+          const sum = filteredRoster.reduce((s, e) => s + getCompAmount(e.deductions, target.id, target.name, (e as any)[target.id]), 0);
+          cell.value = sum;
+          cell.numFmt = "₹#,##0.00";
+        } else {
+          cell.value = "-";
+        }
       }
     }
 
@@ -287,6 +373,8 @@ export function ExportExcelModal({
   };
 
   const handleExportCSV = () => {
+    const { earningsList, deductionsList } = buildComponentLists();
+
     const headers = [
       "Employee Code",
       "Employee Name",
@@ -295,32 +383,21 @@ export function ExportExcelModal({
       "Bank Name",
       "Bank Account No",
       "PF Account No",
-      "Basic Salary",
-      "HRA",
-      "Transport Allowance",
-      "Special Allowance",
-      "Medical Reimbursement",
-      "Onsite Incentive",
+      ...earningsList.map((item) => item.name),
       "Gross Salary",
-      "PF Deduction",
-      "Professional Tax",
-      "TDS Tax",
+      ...deductionsList.map((item) => item.name),
       "Total Deductions",
       "Net Take-Home Salary",
       "Export Date Range",
     ];
 
     const rows = filteredRoster.map((e) => {
-      const basic = e.earnings?.find((c) => c.id === "basic")?.amount ?? e.basic ?? 0;
-      const hra = e.earnings?.find((c) => c.id === "hra")?.amount ?? 0;
-      const transport = e.earnings?.find((c) => c.id === "transport")?.amount ?? 0;
-      const special = e.earnings?.find((c) => c.id === "special")?.amount ?? e.special ?? 0;
-      const medical = e.earnings?.find((c) => c.id === "medical")?.amount ?? 0;
-      const onsite = e.earnings?.find((c) => c.id === "onsite")?.amount ?? e.onsite ?? 0;
-
-      const pf = e.deductions?.find((c) => c.id === "pf")?.amount ?? 0;
-      const pt = e.deductions?.find((c) => c.id === "pt")?.amount ?? 0;
-      const tds = e.deductions?.find((c) => c.id === "tds")?.amount ?? e.tds ?? 0;
+      const earningVals = earningsList.map((item) =>
+        getCompAmount(e.earnings, item.id, item.name, (e as any)[item.id]),
+      );
+      const deductionVals = deductionsList.map((item) =>
+        getCompAmount(e.deductions, item.id, item.name, (e as any)[item.id]),
+      );
 
       return [
         `="${e.id}"`,
@@ -330,16 +407,9 @@ export function ExportExcelModal({
         `"${e.bankName || ""}"`,
         `="${e.bankAccountNo || ""}"`,
         `="${e.pfAccountNo || ""}"`,
-        basic,
-        hra,
-        transport,
-        special,
-        medical,
-        onsite,
+        ...earningVals,
         e.gross,
-        pf,
-        pt,
-        tds,
+        ...deductionVals,
         e.totalDeductions,
         e.net,
         `"${fromPeriod} to ${toPeriod}"`,

@@ -24,10 +24,10 @@ function MetaRow({
 }) {
   return (
     <tr>
-      <td className="w-[18%]">{k1}</td>
-      <td className="w-[32%] font-bold">{v1}</td>
-      <td className="w-[18%]">{k2}</td>
-      <td className="w-[32%] font-bold">{v2}</td>
+      <td className="w-[18%] whitespace-nowrap">{k1}</td>
+      <td className="w-[32%] font-bold whitespace-nowrap">{v1}</td>
+      <td className="w-[18%] whitespace-nowrap">{k2}</td>
+      <td className="w-[32%] font-bold whitespace-nowrap">{v2}</td>
     </tr>
   );
 }

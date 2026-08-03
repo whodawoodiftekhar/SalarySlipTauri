@@ -38,11 +38,13 @@ function Col({
 
 function Meta({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex justify-between gap-2">
-      <span className="text-[11px] uppercase tracking-[0.05em] text-ash">
+    <div className="flex justify-between gap-1.5 min-w-0">
+      <span className="text-[11px] uppercase tracking-[0.05em] text-ash shrink-0">
         {label}
       </span>
-      <b className="text-right text-[12.5px]">{value}</b>
+      <b className="text-right text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" title={String(value)}>
+        {value}
+      </b>
     </div>
   );
 }

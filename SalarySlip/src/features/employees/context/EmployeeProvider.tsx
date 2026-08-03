@@ -20,43 +20,57 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
   const [created, setCreated] = useState<Employee[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
 
+  const safeRoster = useMemo(
+    () => (Array.isArray(roster) ? roster.filter((e): e is RosterEntry => Boolean(e && e.id)) : []),
+    [roster],
+  );
+
   const employees = useMemo(() => {
     const list: Employee[] = [];
     const seen = new Set<string>();
     // Unshift newly created first
     for (const e of created) {
-      if (!removed.includes(e.id) && !seen.has(e.id)) {
+      if (e && e.id && !removed.includes(e.id) && !seen.has(e.id)) {
         list.push(e);
         seen.add(e.id);
       }
     }
     // Then add roster items in backend's newest-first order
-    for (const e of roster) {
-      if (!removed.includes(e.id) && !seen.has(e.id)) {
+    for (const e of safeRoster) {
+      if (e && e.id && !removed.includes(e.id) && !seen.has(e.id)) {
         list.push(e);
         seen.add(e.id);
       }
     }
     return list;
-  }, [roster, created, removed]);
+  }, [safeRoster, created, removed]);
 
   const visibleRoster = useMemo(() => {
     const list: RosterEntry[] = [];
     const seen = new Set<string>();
     for (const e of created) {
-      if ("net" in e && !removed.includes(e.id) && !seen.has(e.id)) {
-        list.push(e as RosterEntry);
+      if (e && e.id && !removed.includes(e.id) && !seen.has(e.id)) {
+        const entry: RosterEntry = "net" in e ? (e as RosterEntry) : {
+          ...e,
+          earnings: [],
+          deductions: [],
+          gross: e.basic || 0,
+          totalDeductions: 0,
+          net: e.basic || 0,
+          factor: 1,
+        };
+        list.push(entry);
         seen.add(e.id);
       }
     }
-    for (const e of roster) {
-      if (!removed.includes(e.id) && !seen.has(e.id)) {
+    for (const e of safeRoster) {
+      if (e && e.id && !removed.includes(e.id) && !seen.has(e.id)) {
         list.push(e);
         seen.add(e.id);
       }
     }
     return list;
-  }, [roster, created, removed]);
+  }, [safeRoster, created, removed]);
 
   const addEmployee = useCallback(
     async (dto: NewEmployeeDto) => {

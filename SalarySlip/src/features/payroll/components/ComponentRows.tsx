@@ -10,16 +10,49 @@ const CONTROL =
 export function ComponentRows({
   rows,
   update,
+  // updateBulk,
   remove,
   amountOf,
 }: {
   rows: SalaryComponent[];
   update: (id: string, patch: Partial<SalaryComponent>) => void;
+  updateBulk?: (ids: string[], patch: Partial<SalaryComponent>) => void;
   remove: (id: string) => void;
   amountOf: (id: string) => number;
 }) {
+  // const allChecked = rows.length > 0 && rows.every((c) => !!c.prorate);
+
+  // const toggleAll = (checked: boolean) => {
+  //   const ids = rows.map((c) => c.id);
+  //   if (updateBulk) {
+  //     updateBulk(ids, { prorate: checked });
+  //   } else {
+  //     rows.forEach((c) => update(c.id, { prorate: checked }));
+  //   }
+  // };
+
   return (
     <div className="flex flex-col gap-1.5">
+      {rows.length > 0 && (
+        <div className="grid grid-cols-[1fr_104px_72px_56px_100px_26px] items-center gap-1.5 px-0.5 pb-1 text-[11px] font-semibold text-ash max-mob:min-w-[500px]">
+          <span>Component</span>
+          <span>Calc</span>
+          {/* <span className="text-right">Value</span>
+          <label
+            className="flex items-center gap-1 whitespace-nowrap text-[10px] font-bold text-ink cursor-pointer select-none"
+            title="Check / Uncheck all LOP"
+          >
+            <input
+              type="checkbox"
+              checked={allChecked}
+              onChange={(e) => toggleAll(e.target.checked)}
+            />
+            All LOP
+          </label> */}
+          <span className="text-right">Amount</span>
+          <span />
+        </div>
+      )}
       {rows.map((c) => (
         <div
           key={c.id}
@@ -51,7 +84,7 @@ export function ComponentRows({
             onChange={(e) => update(c.id, { value: e.target.value })}
           />
           <label
-            className="flex items-center gap-1 whitespace-nowrap text-[10px] text-ash"
+            className="flex items-center gap-1 whitespace-nowrap text-[10px] text-ash cursor-pointer select-none"
             title="Reduce with loss of pay"
           >
             <input
