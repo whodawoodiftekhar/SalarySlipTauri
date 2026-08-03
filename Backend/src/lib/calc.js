@@ -126,7 +126,7 @@ export const makeStructure = (e = {}, dbComponents = []) => {
       group,
       calc,
       value,
-      prorate: group === "earning",
+      prorate: false,
       ...(isBasic ? { isBasic: true } : {}),
     };
   });
@@ -156,7 +156,7 @@ export const makeStructure = (e = {}, dbComponents = []) => {
           group: x.group,
           calc: x.calc,
           value: val,
-          prorate: x.group === "earning",
+          prorate: false,
         });
       }
     }

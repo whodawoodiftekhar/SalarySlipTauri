@@ -58,6 +58,7 @@ export function PayrollEditor({
     dpay,
     setDpay,
     update,
+    updateBulk,
     remove,
     add,
     amountOf,
@@ -178,6 +179,7 @@ export function PayrollEditor({
           <ComponentRows
             rows={comps.filter((c) => c.group === "earning")}
             update={update}
+            updateBulk={updateBulk}
             remove={remove}
             amountOf={amountOf}
           />
@@ -189,6 +191,7 @@ export function PayrollEditor({
           <ComponentRows
             rows={comps.filter((c) => c.group === "deduction")}
             update={update}
+            updateBulk={updateBulk}
             remove={remove}
             amountOf={amountOf}
           />

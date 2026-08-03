@@ -149,7 +149,7 @@ export const makeStructure = (
       group: group as "earning" | "deduction",
       calc,
       value,
-      prorate: group === "earning",
+      prorate: false,
       ...(isBasic ? { isBasic: true } : {}),
     };
   });
@@ -180,7 +180,7 @@ export const makeStructure = (
           group: x.group,
           calc: x.calc,
           value: val,
-          prorate: x.group === "earning",
+          prorate: false,
         });
       }
     }
