@@ -304,8 +304,8 @@ export function ExportExcelModal({
     const summaryRow = worksheet.getRow(summaryRowNum);
     summaryRow.height = 28;
 
-    const totalDeductColIdx = 8 + earningsList.length + deductionsList.length;
-    const dateColIdx = headerTitles.length;
+    const totalDeductColIdx = 8 + earningsList.length + deductionsList.length; // 0-indexed: 8 + e + d
+    const dateColIdx = headerTitles.length; // 1-indexed: last column
 
     for (let c = 8; c <= headerTitles.length; c++) {
       const cell = summaryRow.getCell(c);
@@ -325,14 +325,15 @@ export function ExportExcelModal({
         cell.numFmt = "₹#,##0.00";
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F2537" } };
         cell.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
-      } else if (c === totalDeductColIdx) {
-        cell.value = filteredRoster.reduce((s, e) => s + e.totalDeductions, 0);
+      } else if (c === totalDeductColIdx + 1) {
+        const totalDeductionsSum = filteredRoster.reduce((s, e) => s + e.totalDeductions, 0);
+        cell.value = totalDeductionsSum;
         cell.numFmt = "₹#,##0.00";
       } else if (c === dateColIdx) {
         cell.value = `${fromPeriod} - ${toPeriod}`;
         cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
-        // Dynamic column sum
+        // Dynamic column sum for individual earnings and deductions
         const colIdxZeroBased = c - 1;
         if (colIdxZeroBased >= 7 && colIdxZeroBased < grossColIdx) {
           const earningIdx = colIdxZeroBased - 7;
@@ -340,7 +341,7 @@ export function ExportExcelModal({
           const sum = filteredRoster.reduce((s, e) => s + getCompAmount(e.earnings, target.id, target.name, (e as any)[target.id]), 0);
           cell.value = sum;
           cell.numFmt = "₹#,##0.00";
-        } else if (colIdxZeroBased > grossColIdx && colIdxZeroBased < totalDeductColIdx - 1) {
+        } else if (colIdxZeroBased > grossColIdx && colIdxZeroBased < totalDeductColIdx) {
           const deductIdx = colIdxZeroBased - (grossColIdx + 1);
           const target = deductionsList[deductIdx];
           const sum = filteredRoster.reduce((s, e) => s + getCompAmount(e.deductions, target.id, target.name, (e as any)[target.id]), 0);
