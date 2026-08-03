@@ -201,8 +201,8 @@ router.post("/send-email", async (req, res) => {
         </tr>
       </tbody>
     </table>
-    <div style="margin-top: 15px; background: #f9fafb; padding: 12px; border: 1px solid #ddd; font-family: monospace; font-size: 11.5px; white-space: pre-wrap;">${emailBody}</div>
-    <div class="footer">This is a computer generated salary slip and does not require signature</div>
+    <div style="margin-top: 15px; background: #f9fafb; padding: 12px; border: 1px solid #ddd; font-family: sans-serif; font-size: 12px; white-space: pre-wrap;">${emailBody}</div>
+    <div class="footer" style="margin-top: 12px; font-size: 10px; color: #dc2626; font-weight: bold;">Note: This is a computer generated salary slip and does not require signature</div>
   </div>
 </body>
 </html>`;
@@ -469,19 +469,6 @@ function Invoke-NewOutlook() {
         }
     } catch {}
 
-    try {
-        Set-Clipboard -LiteralPath $cfg.attachment
-    } catch {
-        Write-Output ('INFO:clipboard load failed - ' + $_.Exception.Message)
-        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
-        return
-    }
-
-    if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
-        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
-        return
-    }
-
     # Position cursor in the body area of the compose window and click so
     # WebView2's editable element gets real focus. SendKeys (keybd_event)
     # is silently dropped by the WebView2 surface; only SendInput lands.
@@ -497,6 +484,62 @@ function Invoke-NewOutlook() {
     Start-Sleep -Milliseconds 200
     [WinEnum]::Click() | Out-Null
     Start-Sleep -Milliseconds 400
+
+    # --- Step 1: Replace plain-text body with HTML-formatted body (red Note) ---
+    if ($cfg.htmlBody) {
+        # Select all existing body text
+        [WinEnum]::CtrlKey(0x41) | Out-Null   # 0x41 = 'A' (Ctrl+A)
+        Start-Sleep -Milliseconds 300
+
+        # Put HTML on clipboard using CF_HTML format (no backticks allowed in this script)
+        $htmlFragment = $cfg.htmlBody
+        $crlf = [string]([char]13) + [string]([char]10)
+        $enc = [System.Text.Encoding]::UTF8
+
+        # CF_HTML header template with fixed-width 10-digit placeholders
+        $hdr = 'Version:0.9' + $crlf + 'StartHTML:0000000000' + $crlf + 'EndHTML:0000000000' + $crlf + 'StartFragment:0000000000' + $crlf + 'EndFragment:0000000000' + $crlf
+        $prefix = '<html><body><!--StartFragment-->'
+        $suffix = '<!--EndFragment--></body></html>'
+
+        $hdrBytes = $enc.GetByteCount($hdr)
+        $prefixBytes = $enc.GetByteCount($prefix)
+        $fragBytes = $enc.GetByteCount($htmlFragment)
+        $suffixBytes = $enc.GetByteCount($suffix)
+
+        $startHtml = $hdrBytes
+        $startFrag = $startHtml + $prefixBytes
+        $endFrag = $startFrag + $fragBytes
+        $endHtml = $endFrag + $suffixBytes
+
+        $hdr = 'Version:0.9' + $crlf + 'StartHTML:' + $startHtml.ToString('D10') + $crlf + 'EndHTML:' + $endHtml.ToString('D10') + $crlf + 'StartFragment:' + $startFrag.ToString('D10') + $crlf + 'EndFragment:' + $endFrag.ToString('D10') + $crlf
+        $cfHtml = $hdr + $prefix + $htmlFragment + $suffix
+
+        $dataObj = New-Object System.Windows.Forms.DataObject
+        $dataObj.SetData([System.Windows.Forms.DataFormats]::Html, $cfHtml)
+        $dataObj.SetData([System.Windows.Forms.DataFormats]::UnicodeText, $cfg.body)
+        [System.Windows.Forms.Clipboard]::SetDataObject($dataObj, $true)
+        Start-Sleep -Milliseconds 300
+
+        # Paste formatted HTML body (Ctrl+V)
+        [WinEnum]::CtrlKey(0x56) | Out-Null   # 0x56 = 'V'
+        Start-Sleep -Milliseconds 800
+
+        Write-Output 'INFO:HTML body pasted'
+    }
+
+    # --- Step 2: Paste PDF attachment via clipboard file drop ---
+    try {
+        Set-Clipboard -LiteralPath $cfg.attachment
+    } catch {
+        Write-Output ('INFO:clipboard load failed - ' + $_.Exception.Message)
+        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
+        return
+    }
+
+    if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
+        Write-Output 'RESULT:NEWOUTLOOK_NO_CLIPBOARD'
+        return
+    }
 
     # Ctrl+V via SendInput -- this is accepted by the WebView2 surface.
     [WinEnum]::CtrlKey(0x56) | Out-Null   # 0x56 = 'V'
@@ -520,7 +563,11 @@ function Invoke-ClassicOutlook() {
             $Mail = $Outlook.CreateItem(0)
             $Mail.To = $cfg.to
             $Mail.Subject = $cfg.subject
-            $Mail.Body = $cfg.body
+            if ($cfg.htmlBody) {
+                $Mail.HTMLBody = $cfg.htmlBody
+            } else {
+                $Mail.Body = $cfg.body
+            }
             if (Test-Path -LiteralPath $cfg.attachment) {
                 $Mail.Attachments.Add($cfg.attachment) | Out-Null
             }
@@ -702,6 +749,17 @@ router.post("/launch-outlook", async (req, res) => {
 
     fs.writeFileSync(pdfPath, pdfBuffer);
 
+    const formattedHtmlBody = (emailBody || "")
+      .split("\n")
+      .map((line) => {
+        if (line.trim().startsWith("Note:")) {
+          const noteText = line.trim().substring(5).trim();
+          return `<p style="color:red;font-size:12px;"> <b>Note:</b> ${noteText}</p>`;
+        }
+        return line ? `<p style="margin: 4px 0; font-size: 12.5px;">${line}</p>` : `<br/>`;
+      })
+      .join("");
+
     const configPath = path.join(os.tmpdir(), `outlook_cfg_${process.pid}_${Date.now()}.json`);
     fs.writeFileSync(
       configPath,
@@ -709,6 +767,7 @@ router.post("/launch-outlook", async (req, res) => {
         to: employeeEmail,
         subject: subject || `Payslip for ${period || ""}`,
         body: emailBody || "",
+        htmlBody: formattedHtmlBody,
         attachment: path.win32.normalize(pdfPath),
         // "new" drives New Outlook via the clipboard; "classic" uses COM.
         mode: OUTLOOK_MODES.has(mode) ? mode : "new",
