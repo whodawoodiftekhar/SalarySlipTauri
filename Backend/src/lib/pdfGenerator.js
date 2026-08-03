@@ -148,9 +148,8 @@ export function createPayslipPdfBuffer({
         ["Employee Name", employeeName || "Dawood", "Designation", role || "Junir"],
         ["Employee Code", employeeId || "C11027", "Bank Name", bankName || "BUNB"],
         ["Department", dept || "IT", "Bank Account No.", bankAccountNo || "500977255349"],
-        ["Date of Joining", doj || "01-Jan-2024", "PF Account No.", pfAccountNo || "4322"],
-        ["PAN Number", pan || "ABCDE1234F", "UAN Number", uan || "101234567890"],
-        ["Days in Month", "30", "Days Payable", "30"],
+        ["Days in Month", "30", "PF Account No.", pfAccountNo || "4322"],
+        ["Days Payable", "30", "", ""],
       ];
 
       const metaTotalH = metaFields.length * rowH;

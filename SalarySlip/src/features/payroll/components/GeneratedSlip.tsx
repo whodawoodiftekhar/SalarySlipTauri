@@ -140,23 +140,12 @@ export function GeneratedSlip({
                 v2={emp.bankAccountNo || slipDefaults.bankAccountNo}
               />
               <MetaRow
-                k1="Date of Joining"
-                v1={emp.doj || "01-Jan-2024"}
+                k1="Days in Month"
+                v1={dim}
                 k2="PF Account No."
                 v2={emp.pfAccountNo || slipDefaults.pfAccountNo}
               />
-              <MetaRow
-                k1="PAN Number"
-                v1={emp.pan || "ABCDE1234F"}
-                k2="UAN Number"
-                v2={emp.uan || "101234567890"}
-              />
-              <MetaRow
-                k1="Days in Month"
-                v1={dim}
-                k2="Days Payable"
-                v2={dpay}
-              />
+              <MetaRow k1="Days Payable" v1={dpay} k2="" v2="" />
 
               {/* Components banner */}
               <tr>
