@@ -155,7 +155,7 @@ export function PayrollEditor({
 
               <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={handleSaveStructure}
                   disabled={savingStructure || !isDirty}
