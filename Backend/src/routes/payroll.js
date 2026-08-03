@@ -269,6 +269,9 @@ $cfg = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8 | ConvertFrom-Json
 $mode = if ($cfg.mode) { $cfg.mode } else { 'new' }
 
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+# UI Automation is how the paste-options flyout gets driven; see Step 1 below.
+Add-Type -AssemblyName UIAutomationClient -ErrorAction SilentlyContinue
+Add-Type -AssemblyName UIAutomationTypes -ErrorAction SilentlyContinue
 
 Add-Type -ErrorAction SilentlyContinue -TypeDefinition @'
 using System;
@@ -326,6 +329,18 @@ public class WinEnum {
         inp[2].type = INPUT_KEYBOARD; inp[2].u.ki.wVk = vk; inp[2].u.ki.dwFlags = KEYEVENTF_KEYUP;
         inp[3].type = INPUT_KEYBOARD; inp[3].u.ki.wVk = VK_CONTROL; inp[3].u.ki.dwFlags = KEYEVENTF_KEYUP;
         return SendInput(4, inp, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    /**
+     * One key, pressed and released on its own. Needed for New Outlook's paste
+     * options: a bare VK_CONTROL tap opens the flyout, then 'K' picks "Keep
+     * source formatting" - Ctrl+K would insert a hyperlink instead.
+     */
+    public static uint Tap(ushort vk) {
+        INPUT[] inp = new INPUT[2];
+        inp[0].type = INPUT_KEYBOARD; inp[0].u.ki.wVk = vk;
+        inp[1].type = INPUT_KEYBOARD; inp[1].u.ki.wVk = vk; inp[1].u.ki.dwFlags = KEYEVENTF_KEYUP;
+        return SendInput(2, inp, Marshal.SizeOf(typeof(INPUT)));
     }
 
     public class Info {
@@ -522,9 +537,81 @@ function Invoke-NewOutlook() {
 
         # Paste formatted HTML body (Ctrl+V)
         [WinEnum]::CtrlKey(0x56) | Out-Null   # 0x56 = 'V'
+        Start-Sleep -Milliseconds 1200
+
+        # New Outlook pastes using the composer's own character formatting and
+        # silently drops every colour, font and size the fragment asked for - which
+        # is why the red Note line arrived black. A bare Ctrl tap opens its
+        # paste-options flyout, and "Keep source formatting" there restores them.
+        # The entry has no working accelerator key and exposes no Invoke pattern,
+        # so it is located through UI Automation and clicked where it sits.
+        [WinEnum]::Tap(0x11) | Out-Null       # VK_CONTROL on its own
+        Start-Sleep -Milliseconds 1000
+
+        try {
+            $uiaRoot = [System.Windows.Automation.AutomationElement]::FromHandle($target.Handle)
+            # Match on the automation id, so this does not break under a non-English
+            # UI the way matching the "Keep source formatting" label would.
+            $byId = New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'PASTE_ORIGINAL')
+            $item = $uiaRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $byId)
+            if (-not $item) {
+                $byName = New-Object System.Windows.Automation.PropertyCondition(
+                    [System.Windows.Automation.AutomationElement]::NameProperty, 'Keep source formatting')
+                $item = $uiaRoot.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $byName)
+            }
+            if ($item) {
+                $pt = $item.GetClickablePoint()
+                [WinEnum]::SetCursorPos([int]$pt.X, [int]$pt.Y) | Out-Null
+                Start-Sleep -Milliseconds 250
+                [WinEnum]::Click() | Out-Null
+                Start-Sleep -Milliseconds 1000
+            } else {
+                Write-Output 'INFO:paste options flyout not found'
+                [WinEnum]::Tap(0x1B) | Out-Null   # Escape, so it cannot eat later keys
+                Start-Sleep -Milliseconds 400
+            }
+        } catch {
+            Write-Output ('INFO:paste options automation failed - ' + $_.Exception.Message)
+            [WinEnum]::Tap(0x1B) | Out-Null
+            Start-Sleep -Milliseconds 400
+        }
+
+        # Confirm against the composer itself instead of trusting the click. The
+        # sentinel matters: an open flyout swallows Ctrl+C, and without it the
+        # readback would return the HTML *this script* put on the clipboard and so
+        # always look like success.
+        [System.Windows.Forms.Clipboard]::SetText('OUTLOOK_BODY_READBACK_SENTINEL')
+        Start-Sleep -Milliseconds 250
+        [WinEnum]::CtrlKey(0x41) | Out-Null   # Ctrl+A
+        Start-Sleep -Milliseconds 350
+        [WinEnum]::CtrlKey(0x43) | Out-Null   # Ctrl+C
         Start-Sleep -Milliseconds 800
 
-        Write-Output 'INFO:HTML body pasted'
+        $echoHtml = ''
+        $echoText = ''
+        try {
+            $raw = [System.Windows.Forms.Clipboard]::GetData('HTML Format')
+            if ($raw -is [System.IO.Stream]) {
+                $reader = New-Object System.IO.StreamReader($raw, [System.Text.Encoding]::UTF8)
+                $raw = $reader.ReadToEnd()
+            }
+            $echoHtml = [string]$raw
+        } catch {}
+        try { $echoText = [string][System.Windows.Forms.Clipboard]::GetText() } catch {}
+
+        # Collapse the select-all before the file drop is pasted, otherwise the
+        # attachment would replace the whole body instead of attaching to it.
+        [WinEnum]::CtrlKey(0x23) | Out-Null   # Ctrl+End
+        Start-Sleep -Milliseconds 300
+
+        if ($echoText -eq 'OUTLOOK_BODY_READBACK_SENTINEL') {
+            Write-Output 'INFO:HTML body pasted - could not read the body back to check formatting'
+        } elseif ($echoHtml -match '(?i)color\s*:\s*(red|#ff0000|rgb\(\s*255\s*,\s*0\s*,\s*0)') {
+            Write-Output 'INFO:HTML body pasted, source formatting kept'
+        } else {
+            Write-Output 'INFO:HTML body pasted, but the colour was not kept'
+        }
     }
 
     # --- Step 2: Paste PDF attachment via clipboard file drop ---
@@ -586,6 +673,13 @@ $newOutlookInstalled = $null -ne (Get-AppxPackage -Name 'Microsoft.OutlookForWin
 
 if ($mode -eq 'classic') {
     if (Invoke-ClassicOutlook) { exit 0 }
+    # COM is the only route that renders the HTML body faithfully, so when it is
+    # missing fall through to New Outlook rather than to a bare mailto: that
+    # would drop the attachment as well as the formatting.
+    if ($newOutlookInstalled) {
+        Invoke-NewOutlook
+        exit 0
+    }
     Start-Process (Get-Mailto) | Out-Null
     Write-Output 'RESULT:MAILTO_NO_ATTACHMENT'
     exit 0
@@ -754,9 +848,14 @@ router.post("/launch-outlook", async (req, res) => {
       .map((line) => {
         if (line.trim().startsWith("Note:")) {
           const noteText = line.trim().substring(5).trim();
-          return `<p style="color:red;font-size:12px;"> <b>Note:</b> ${noteText}</p>`;
+          // The colour rides on a <span>: New Outlook honours inline styles only
+          // once "Keep source formatting" has been picked, and drops <font>
+          // outright. Deliberately no font-size or font-family anywhere in this
+          // body — with source formatting kept, anything set here would override
+          // the composer's own default and change how the rest of the mail looks.
+          return `<p style="margin:0"><span style="color:#FF0000"><b>Note:</b> ${noteText}</span></p>`;
         }
-        return line ? `<p style="margin: 4px 0; font-size: 12.5px;">${line}</p>` : `<br/>`;
+        return line ? `<p style="margin:0">${line}</p>` : `<br/>`;
       })
       .join("");
 
