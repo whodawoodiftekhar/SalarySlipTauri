@@ -85,6 +85,21 @@ export function usePayrollRun(employee: Employee) {
     [res],
   );
 
+  const [savingStructure, setSavingStructure] = useState(false);
+
+  const saveStructure = useCallback(async () => {
+    if (!comps) return;
+    setSavingStructure(true);
+    try {
+      const updated = await payrollService.saveStructure(employee.id, comps);
+      setDraft(null);
+      await refetch();
+      return updated;
+    } finally {
+      setSavingStructure(false);
+    }
+  }, [comps, employee.id, refetch]);
+
   return {
     comps,
     res,
@@ -100,5 +115,8 @@ export function usePayrollRun(employee: Employee) {
     remove,
     add,
     amountOf,
+    saveStructure,
+    savingStructure,
+    isDirty: draft !== null,
   };
 }

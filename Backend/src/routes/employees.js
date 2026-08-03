@@ -34,44 +34,44 @@ router.get("/:id", async (req, res) => {
 
 /** POST /api/employees — create, and attach the default salary structure */
 router.post("/", async (req, res) => {
-  const { id, name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode } = req.body;
+  try {
+    const { id } = req.body;
+    if (id) {
+      const existing = await Employee.findOne({ id: id.trim() });
+      if (existing) {
+        return res.status(400).json({
+          message: `Employee Code "${id}" already exists. Please use a unique Employee Code.`,
+        });
+      }
+    }
 
-  const employee = await Employee.create({
-    id,
-    name,
-    email,
-    dept,
-    role,
-    basic,
-    special,
-    tds,
-    onsite,
-    bankName,
-    bankAccountNo,
-    pfAccountNo,
-    pan,
-    uan,
-    doj,
-    paymentMode,
-  });
+    const employee = await Employee.create(req.body);
 
-  const dbCatalog = await SalaryComponent.find().lean();
+    const dbCatalog = await SalaryComponent.find().lean();
 
-  await SalaryStructure.create({
-    employeeId: employee.id,
-    components: makeStructure(employee, dbCatalog),
-  });
+    await SalaryStructure.findOneAndUpdate(
+      { employeeId: employee.id },
+      {
+        employeeId: employee.id,
+        components: makeStructure(req.body, dbCatalog),
+      },
+      { upsert: true, returnDocument: "after" },
+    );
 
-  res.status(201).json(employee);
+    res.status(201).json(employee);
+  } catch (err) {
+    console.error("Error creating employee:", err);
+    res.status(500).json({
+      message: err.message || "Failed to create employee",
+    });
+  }
 });
 
 /** PUT /api/employees/:id — update the employee record */
 router.put("/:id", async (req, res) => {
-  const { name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode } = req.body;
-
   const employee = await Employee.findOneAndUpdate(
     { id: req.params.id },
-    { name, email, dept, role, basic, special, tds, onsite, bankName, bankAccountNo, pfAccountNo, pan, uan, doj, paymentMode },
+    req.body,
     { returnDocument: "after", runValidators: true },
   );
 

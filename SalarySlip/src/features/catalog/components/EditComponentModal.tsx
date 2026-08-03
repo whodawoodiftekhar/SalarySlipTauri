@@ -18,8 +18,8 @@ export function EditComponentModal({
 }) {
   const [f, setF] = useState({
     name: item.name ?? "",
-    group: item.group ?? ("Earnings" as CatalogItem["group"]),
-    calc: item.calc ?? "Flat",
+    group: item.group ?? ("earning" as CatalogItem["group"]),
+    calc: item.calc ?? "Flat ₹",
     taxable: item.taxable ?? "Yes",
   });
 
@@ -65,6 +65,7 @@ export function EditComponentModal({
               disabled
             />
           </Field>
+
           <Field label="Component Name *">
             <input
               className={FIELD_INPUT}
@@ -73,14 +74,15 @@ export function EditComponentModal({
               placeholder="e.g. Special Bonus"
             />
           </Field>
+
           <Field label="Group">
             <select
               className={FIELD_INPUT}
               value={f.group}
               onChange={set("group")}
             >
-              <option value="Earnings">Earnings</option>
-              <option value="Deductions">Deductions</option>
+              <option value="earning">Earning</option>
+              <option value="deduction">Deduction</option>
             </select>
           </Field>
           <Field label="Calculation Method *">
@@ -88,7 +90,7 @@ export function EditComponentModal({
               className={FIELD_INPUT}
               value={f.calc}
               onChange={set("calc")}
-              placeholder="e.g. Flat, 50% Basic, 12% Basic"
+              placeholder="e.g. Flat ₹, % of Basic, % of Gross"
             />
           </Field>
           <Field label="Taxable">
@@ -99,7 +101,8 @@ export function EditComponentModal({
             >
               <option value="Yes">Yes</option>
               <option value="No">No</option>
-              <option value="Partial">Partial</option>
+              <option value="Partly">Partly</option>
+              <option value="—">— (Not applicable)</option>
             </select>
           </Field>
         </div>

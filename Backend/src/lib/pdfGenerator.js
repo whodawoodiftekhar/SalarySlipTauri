@@ -159,10 +159,17 @@ export function createPayslipPdfBuffer({
       metaFields.forEach((row, i) => {
         const y = startY + i * rowH;
         doc.rect(30, y, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[0], 35, y + 4);
-        doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(row[1], 155, y + 4);
-        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[2], 305, y + 4);
-        doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(row[3], 425, y + 4);
+        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[0], 35, y + 4, { width: 115, lineBreak: false });
+
+        const v1 = String(row[1] || "");
+        const v1Font = v1.length > 24 ? 7 : v1.length > 18 ? 7.5 : 8.5;
+        doc.fillColor(darkColor).fontSize(v1Font).font("Helvetica-Bold").text(v1, 155, y + 4, { width: 140, lineBreak: false });
+
+        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[2], 305, y + 4, { width: 115, lineBreak: false });
+
+        const v2 = String(row[3] || "");
+        const v2Font = v2.length > 24 ? 7 : v2.length > 18 ? 7.5 : 8.5;
+        doc.fillColor(darkColor).fontSize(v2Font).font("Helvetica-Bold").text(v2, 425, y + 4, { width: 135, lineBreak: false });
       });
 
       // Vertical Grid Lines for Metadata Table
@@ -210,12 +217,16 @@ export function createPayslipPdfBuffer({
         const d = dList[i];
 
         if (e) {
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(e.name, 35, y + 4);
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(e.amount), 175, y + 4, { width: 100, align: "right" });
+          const eName = String(e.name || "");
+          const eFont = eName.length > 28 ? 7 : eName.length > 22 ? 7.5 : 8.5;
+          doc.fillColor(darkColor).fontSize(eFont).font("Helvetica").text(eName, 35, y + 4, { width: 135, lineBreak: false });
+          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(e.amount), 175, y + 4, { width: 100, align: "right", lineBreak: false });
         }
         if (d) {
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(d.name, 290, y + 4);
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(d.amount), 440, y + 4, { width: 115, align: "right" });
+          const dName = String(d.name || "");
+          const dFont = dName.length > 28 ? 7 : dName.length > 22 ? 7.5 : 8.5;
+          doc.fillColor(darkColor).fontSize(dFont).font("Helvetica").text(dName, 290, y + 4, { width: 140, lineBreak: false });
+          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(d.amount), 440, y + 4, { width: 115, align: "right", lineBreak: false });
         }
       }
 

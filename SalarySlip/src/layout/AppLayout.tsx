@@ -10,7 +10,7 @@ export function AppLayout() {
       <main className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <DbStatusBanner />
-        <div className="max-w-[1200px] px-7 py-[26px] max-mob:p-4">
+        <div className="w-full flex-1 px-7 py-[26px] max-mob:p-4">
           <Outlet />
         </div>
       </main>

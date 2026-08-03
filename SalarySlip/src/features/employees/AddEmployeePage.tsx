@@ -1,5 +1,5 @@
 import { ArrowLeft, Landmark, Loader2, Plus, User, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
@@ -57,56 +57,99 @@ export default function AddEmployeePage() {
 
   const set =
     (k: keyof EmployeeFormState) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setF({ ...f, [k]: e.target.value });
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setSubmitError(null);
+      setF((prev) => ({ ...prev, [k]: e.target.value }));
+    };
 
-  const valid = Boolean(f.name.trim() && f.role.trim() && f.email.trim() && num(f.basic) > 0);
+  const [salaryInputs, setSalaryInputs] = useState<Record<string, string>>({});
 
-  const previewResult = compute(
-    makeStructure(
-      {
-        basic: num(f.basic),
-        special: num(f.special),
-        onsite: num(f.onsite),
-        transport: num(f.transport),
-        projectAllowance: num(f.projectAllowance),
-        lta: num(f.lta),
-        medical: num(f.medical),
-        pf: num(f.pf),
-        tds: num(f.tds),
-      },
-      catalogItems,
-    ),
-    30,
-    30,
+  const handleSalaryChange = (key: string, value: string) => {
+    setSubmitError(null);
+    setSalaryInputs((prev) => ({ ...prev, [key]: value }));
+    if (key in f) {
+      setF((prev) => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const seedObj = useMemo(() => {
+    const obj: Record<string, number> = {
+      basic: num(salaryInputs["basic"] ?? f.basic),
+      special: num(salaryInputs["special"] ?? f.special),
+      onsite: num(salaryInputs["onsite"] ?? f.onsite),
+      transport: num(salaryInputs["transport"] ?? f.transport),
+      projectAllowance: num(salaryInputs["projectAllowance"] ?? f.projectAllowance),
+      lta: num(salaryInputs["lta"] ?? f.lta),
+      medical: num(salaryInputs["medical"] ?? f.medical),
+      pf: num(salaryInputs["pf"] ?? f.pf),
+      tds: num(salaryInputs["tds"] ?? f.tds),
+    };
+    catalogItems.forEach((item) => {
+      const codeKey = (item.code || "").toLowerCase();
+      if (salaryInputs[codeKey] !== undefined) {
+        obj[codeKey] = num(salaryInputs[codeKey]);
+      }
+    });
+    return obj;
+  }, [salaryInputs, f, catalogItems]);
+
+  const valid = Boolean(
+    f.name.trim() &&
+      f.role.trim() &&
+      f.email.trim() &&
+      num(salaryInputs["basic"] ?? f.basic) > 0,
   );
 
+  const previewResult = compute(makeStructure(seedObj, catalogItems), 30, 30);
+
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const getErrorMessage = (err: unknown): string => {
+    if (err && typeof err === "object" && "body" in err && typeof (err as any).body === "string") {
+      try {
+        const parsed = JSON.parse((err as any).body);
+        if (parsed && parsed.message) return parsed.message;
+      } catch {}
+    }
+    if (err instanceof Error) return err.message;
+    return String(err || "Failed to submit employee data");
+  };
+
   const save = async () => {
-    const finalId = f.id.trim() || autoCode;
-    const employee = await addEmployee({
-      id: finalId,
-      name: f.name.trim(),
-      email: f.email.trim(),
-      dept: f.dept,
-      role: f.role.trim(),
-      basic: num(f.basic),
-      special: num(f.special),
-      onsite: num(f.onsite),
-      transport: num(f.transport),
-      projectAllowance: num(f.projectAllowance),
-      lta: num(f.lta),
-      medical: num(f.medical),
-      pf: num(f.pf),
-      tds: num(f.tds),
-      bankName: f.bankName.trim(),
-      bankAccountNo: f.bankAccountNo.trim(),
-      pfAccountNo: f.pfAccountNo.trim(),
-      pan: f.pan.trim(),
-      uan: f.uan.trim(),
-      doj: f.doj.trim(),
-      paymentMode: f.paymentMode.trim(),
-    });
-    navigate(`/payroll/${employee.id}`);
+    setSubmitError(null);
+    try {
+      const finalId = f.id.trim() || autoCode;
+      const employee = await addEmployee({
+        id: finalId,
+        name: f.name.trim(),
+        email: f.email.trim(),
+        dept: f.dept,
+        role: f.role.trim(),
+        basic: num(salaryInputs["basic"] ?? f.basic),
+        special: num(salaryInputs["special"] ?? f.special),
+        onsite: num(salaryInputs["onsite"] ?? f.onsite),
+        transport: num(salaryInputs["transport"] ?? f.transport),
+        projectAllowance: num(salaryInputs["projectAllowance"] ?? f.projectAllowance),
+        lta: num(salaryInputs["lta"] ?? f.lta),
+        medical: num(salaryInputs["medical"] ?? f.medical),
+        pf: num(salaryInputs["pf"] ?? f.pf),
+        tds: num(salaryInputs["tds"] ?? f.tds),
+        ...seedObj,
+        bankName: f.bankName.trim(),
+        bankAccountNo: f.bankAccountNo.trim(),
+        pfAccountNo: f.pfAccountNo.trim(),
+        pan: f.pan.trim(),
+        uan: f.uan.trim(),
+        doj: f.doj.trim(),
+        paymentMode: f.paymentMode.trim(),
+      });
+      if (employee && employee.id) {
+        navigate(`/payroll/${employee.id}`);
+      }
+    } catch (err) {
+      console.error("Failed to add employee:", err);
+      setSubmitError(getErrorMessage(err));
+    }
   };
 
   return (
@@ -215,84 +258,113 @@ export default function AddEmployeePage() {
               <Wallet size={16} className="text-accent" /> Monthly Salary Setup (₹)
             </div>
             <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
-              <Field label="Basic Salary *">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.basic}
-                  onChange={set("basic")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Special Allowance">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.special}
-                  onChange={set("special")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Transport Allowance">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.transport}
-                  onChange={set("transport")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Project Allowance">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.projectAllowance}
-                  onChange={set("projectAllowance")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="LTA (Leave Travel)">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.lta}
-                  onChange={set("lta")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Medical Allowance">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.medical}
-                  onChange={set("medical")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="Onsite Incentive">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.onsite}
-                  onChange={set("onsite")}
-                  placeholder="0"
-                />
-              </Field>
-              <Field label="PF (Provident Fund)">
-                <input
-                  className={FIELD_INPUT}
-                  type="number"
-                  value={f.pf}
-                  onChange={set("pf")}
-                  placeholder="0"
-                />
-              </Field>
+              {catalogItems.length > 0 ? (
+                catalogItems.map((item) => {
+                  const codeKey = (item.code || "").toLowerCase();
+                  const isBasic = codeKey === "basic" || item.name.toLowerCase().includes("basic");
+                  const val = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
+                  const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
+
+                  return (
+                    <Field key={item.code || item.name} label={`${item.name}${isBasic ? " *" : ""}`}>
+                      <input
+                        className={FIELD_INPUT}
+                        type="number"
+                        value={val}
+                        onChange={(e) => handleSalaryChange(codeKey, e.target.value)}
+                        placeholder={isAutoPct ? `Auto (${item.calc})` : "0"}
+                      />
+                    </Field>
+                  );
+                })
+              ) : (
+                <>
+                  <Field label="Basic Salary *">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.basic}
+                      onChange={(e) => handleSalaryChange("basic", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="Special Allowance">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.special}
+                      onChange={(e) => handleSalaryChange("special", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="Transport Allowance">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.transport}
+                      onChange={(e) => handleSalaryChange("transport", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="Project Allowance">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.projectAllowance}
+                      onChange={(e) => handleSalaryChange("projectAllowance", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="LTA (Leave Travel)">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.lta}
+                      onChange={(e) => handleSalaryChange("lta", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="Medical Allowance">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.medical}
+                      onChange={(e) => handleSalaryChange("medical", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="Onsite Incentive">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.onsite}
+                      onChange={(e) => handleSalaryChange("onsite", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                  <Field label="PF (Provident Fund)">
+                    <input
+                      className={FIELD_INPUT}
+                      type="number"
+                      value={f.pf}
+                      onChange={(e) => handleSalaryChange("pf", e.target.value)}
+                      placeholder="0"
+                    />
+                  </Field>
+                </>
+              )}
             </div>
 
             <p className="mt-3 text-[11.5px] leading-relaxed text-mist">
               * HRA and other components will be attached automatically based on your company structure.
             </p>
           </div>
+
+          {submitError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-[13px] font-medium text-red-700">
+              ⚠️ {submitError}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
             <Button variant="overlayGhost" onClick={() => navigate("/employees")} disabled={saving}>

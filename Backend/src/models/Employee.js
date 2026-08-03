@@ -29,6 +29,7 @@ const employeeSchema = new mongoose.Schema(
     paymentMode: { type: String, default: "Bank Transfer", trim: true },
   },
   {
+    strict: false,
     timestamps: true,
     id: false,
     versionKey: false,

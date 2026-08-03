@@ -25,13 +25,28 @@ export default function EmployeesPage() {
   const [showExport, setShowExport] = useState(false);
   const [actionError, setActionError] = useState<Error | null>(null);
 
-  const depts = ["All", ...Array.from(new Set([...departments, ...roster.map((e) => e.dept)]))];
+  const safeRoster = (roster || []).filter((e): e is RosterEntry => Boolean(e && e.id));
 
-  const rows = roster.filter((e) => {
-    const matchesDept = selectedDept === "All" || e.dept === selectedDept;
-    const matchesQ = (e.name + e.id + e.dept + e.role)
+  const depts = [
+    "All",
+    ...Array.from(
+      new Set([
+        ...(departments || []),
+        ...safeRoster.map((e) => e.dept).filter((d): d is string => Boolean(d)),
+      ]),
+    ),
+  ];
+
+  const rows = safeRoster.filter((e) => {
+    const deptStr = e.dept || "";
+    const nameStr = e.name || "";
+    const idStr = e.id || "";
+    const roleStr = e.role || "";
+
+    const matchesDept = selectedDept === "All" || deptStr === selectedDept;
+    const matchesQ = (nameStr + idStr + deptStr + roleStr)
       .toLowerCase()
-      .includes(q.toLowerCase());
+      .includes((q || "").toLowerCase());
     return matchesDept && matchesQ;
   });
 

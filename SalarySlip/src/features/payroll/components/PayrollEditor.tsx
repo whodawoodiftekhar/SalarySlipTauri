@@ -1,8 +1,9 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Save } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { LoadingRows } from "@/shared/components/feedback/LoadingState";
+import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader } from "@/shared/components/ui/Card";
 import { num } from "@/shared/lib/format";
 import type { Employee } from "@/shared/types";
@@ -62,16 +63,36 @@ export function PayrollEditor({
     remove,
     add,
     amountOf,
+    saveStructure,
+    savingStructure,
+    isDirty,
   } = usePayrollRun(emp);
 
   const [gen, setGen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeError, setFinalizeError] = useState<Error | null>(null);
+  const [savedNotice, setSavedNotice] = useState(false);
+
+  const handleSaveStructure = async () => {
+    await saveStructure();
+    setSavedNotice(true);
+    setTimeout(() => setSavedNotice(false), 2500);
+  };
+
+  const handleBack = async () => {
+    if (isDirty) {
+      await saveStructure();
+    }
+    navigate("/employees");
+  };
 
   const finalize = async () => {
     setFinalizing(true);
     setFinalizeError(null);
     try {
+      if (isDirty) {
+        await saveStructure();
+      }
       await payrollService.finalize({
         employeeId: emp.id,
         period: selectedPeriod,
@@ -89,8 +110,8 @@ export function PayrollEditor({
 
   const backLink = (
     <button
-      className="mb-[14px] inline-flex items-center gap-1.5 border-none bg-transparent text-[13px] font-semibold text-ash hover:text-ink"
-      onClick={() => navigate("/employees")}
+      className="mb-[14px] inline-flex items-center gap-1.5 border-none bg-transparent text-[13px] font-semibold text-ash hover:text-ink cursor-pointer"
+      onClick={handleBack}
     >
       <ArrowLeft size={15} /> Back to roster
     </button>
@@ -124,11 +145,33 @@ export function PayrollEditor({
       <div className="grid grid-cols-[1.1fr_0.9fr] items-start gap-4 max-pay:grid-cols-1">
         <Card>
           <CardHeader>
-            <div>
-              <h3 className="m-0 text-[15px] font-[650]">{emp.name}</h3>
-              <small className="text-[12px] text-mist">
-                {emp.id} · {emp.role} · {emp.dept}
-              </small>
+            <div className="flex items-center justify-between w-full">
+              <div>
+                <h3 className="m-0 text-[15px] font-[650]">{emp.name}</h3>
+                <small className="text-[12px] text-mist">
+                  {emp.id} · {emp.role} · {emp.dept}
+                </small>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveStructure}
+                  disabled={savingStructure || !isDirty}
+                  title={isDirty ? "Save structure edits to database" : "Structure saved in database"}
+                  className="h-8 text-[12px] gap-1.5 px-3"
+                >
+                  {savingStructure ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : savedNotice ? (
+                    <Check size={13} className="text-emerald-600" />
+                  ) : (
+                    <Save size={13} />
+                  )}
+                  {savingStructure ? "Saving…" : savedNotice ? "Saved!" : isDirty ? "Save Structure" : "Saved"}
+                </Button>
+              </div>
             </div>
             <div className="flex gap-[10px] items-center">
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
