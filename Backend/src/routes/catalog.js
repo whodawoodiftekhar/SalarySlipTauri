@@ -29,16 +29,37 @@ router.post("/", async (req, res) => {
   res.status(201).json(item);
 });
 
-/** PUT /api/salary-components/:code */
+/**
+ * PUT /api/salary-components/:code — the code in the path is the current one.
+ *
+ * The code itself is editable. It is what the employee salary form stores an
+ * amount under and what `makeStructure` derives a line id from, so a rename
+ * reaches structures generated from here on; structures already saved keep the
+ * lines they hold and go on paying the same rupees. The clash is checked here
+ * rather than left to the unique index so HR gets a sentence, not a driver error.
+ */
 router.put("/:code", async (req, res) => {
-  const { name, group, calc, taxable, order } = req.body;
+  const { code, name, group, calc, taxable, order } = req.body;
+  const current = req.params.code.toUpperCase();
+  const renamed = code == null ? "" : String(code).trim().toUpperCase();
+
+  if (renamed && renamed !== current) {
+    const taken = await SalaryComponent.findOne({ code: renamed }).lean();
+    if (taken) {
+      return res.status(409).json({
+        message: `Component code "${renamed}" already belongs to ${taken.name}. Pick another code.`,
+      });
+    }
+  }
+
   const item = await SalaryComponent.findOneAndUpdate(
-    { code: req.params.code.toUpperCase() },
+    { code: current },
     {
       name,
       group,
       calc,
       taxable,
+      ...(renamed ? { code: renamed } : {}),
       ...(order == null || order === "" ? {} : { order: Number(order) }),
     },
     { returnDocument: "after", runValidators: true },

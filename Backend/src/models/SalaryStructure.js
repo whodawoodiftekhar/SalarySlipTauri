@@ -13,7 +13,10 @@ export const componentSchema = new mongoose.Schema(
     },
     // Mixed because the UI binds it straight to a text input
     value: { type: mongoose.Schema.Types.Mixed, default: 0 },
+    // force-day-rate a deduction that would otherwise be paid whole
     prorate: { type: Boolean, default: false },
+    // opt this line out of day-rating entirely — earnings and PF rate by default
+    fixed: { type: Boolean, default: false },
     isBasic: { type: Boolean },
   },
   { _id: false, id: false },

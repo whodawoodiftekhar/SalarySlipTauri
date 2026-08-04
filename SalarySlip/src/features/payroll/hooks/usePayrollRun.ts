@@ -73,15 +73,20 @@ export function usePayrollRun(employee: Employee, period: string) {
   );
 
   /**
-   * The stored structure as-is. `prorate` must survive the round trip: it used
-   * to be forced back to false here, so a ticked LOP box silently un-ticked
-   * itself after saving — and worse, a finalize after reload computed a full
-   * month even though HR had saved the line as day-rated. Legacy rows without
-   * the field coerce to false.
+   * The stored structure as-is. Both day-rating flags must survive the round
+   * trip: `prorate` used to be forced back to false here, so a ticked LOP box
+   * silently un-ticked itself after saving — and worse, a finalize after reload
+   * computed a full month even though HR had saved the line as day-rated.
+   * Legacy rows without either field coerce to false, which leaves earnings
+   * day-rated by default.
    */
   const initialComps = useMemo(() => {
     if (!data) return [];
-    return data.map((c) => ({ ...c, prorate: Boolean(c.prorate) }));
+    return data.map((c) => ({
+      ...c,
+      prorate: Boolean(c.prorate),
+      fixed: Boolean(c.fixed),
+    }));
   }, [data]);
 
   const comps = useMemo(() => draft ?? initialComps, [draft, initialComps]);
@@ -126,6 +131,7 @@ export function usePayrollRun(employee: Employee, period: string) {
           calc: "flat",
           value: 0,
           prorate: false,
+          fixed: false,
         },
       ]),
     [initialComps],

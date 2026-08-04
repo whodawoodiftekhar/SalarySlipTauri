@@ -10,7 +10,7 @@
  * same rupees.
  */
 import { Router } from "express";
-import { compute, makeStructure, round2 } from "../lib/calc.js";
+import { compute, dayRates, makeStructure, round2 } from "../lib/calc.js";
 import { daysInPeriod } from "../lib/period.js";
 import { exportPayslipPdfs } from "../lib/payslipExport.js";
 import { deliverPayslip } from "../lib/payslipMailer.js";
@@ -32,12 +32,11 @@ const clampDays = (value, dim) => {
 /**
  * Whether day-rating is actually in effect for a part-month.
  *
- * `prorate` is a per-line flag HR ticks on the employee's payroll screen and it
- * is stored with the structure, so a run has nothing of its own to decide: if no
- * line is marked, fewer days pays a full month and the row says so.
+ * The engine day-rates earnings and PF by default, so fewer days reduces pay on
+ * any ordinary structure. This stays false only where every line is marked
+ * `fixed` — then the row says so rather than looking like the days were ignored.
  */
-const isDayRated = (components, hasLop) =>
-  hasLop && components.some((c) => c.prorate);
+const isDayRated = (components, hasLop) => hasLop && components.some(dayRates);
 
 const sumRows = (rows) =>
   rows.reduce(

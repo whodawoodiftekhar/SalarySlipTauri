@@ -9,6 +9,7 @@
 export {
   PF_CAP,
   compute,
+  dayRates,
   makeStructure,
   num,
   round2,

@@ -1,3 +1,3 @@
 export { apiClient } from "./apiClient";
 export { downloadFile } from "./download";
-export { HttpError, isHttpError } from "./httpError";
+export { errorMessage, HttpError, isHttpError } from "./httpError";

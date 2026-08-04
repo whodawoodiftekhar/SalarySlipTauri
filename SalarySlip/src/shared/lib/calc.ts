@@ -8,7 +8,7 @@
  */
 import type { CalcMethod } from "@/shared/types";
 
-export { PF_CAP, compute, makeStructure } from "@engine/calc.js";
+export { PF_CAP, compute, dayRates, makeStructure } from "@engine/calc.js";
 
 export const CALC_LABELS: Record<CalcMethod, string> = {
   flat: "Flat ₹",

@@ -231,10 +231,10 @@ export default function PayRunPage() {
             <AlertTriangle size={15} className="mt-[1px] flex-none" />
             <span>
               {run.totals.lopWithoutEffect} employee
-              {run.totals.lopWithoutEffect === 1 ? "" : "s"} pay fewer days but nothing
-              in their structure is marked prorate, so their pay is unchanged. Open that
-              employee from Employees, tick LOP on the lines that should be day-rated,
-              and save — this run will pick it up.
+              {run.totals.lopWithoutEffect === 1 ? "" : "s"} pay fewer days but every
+              line in their structure is marked as paid whole, so their pay is unchanged.
+              Open that employee from Employees, tick LOP on the lines that should be
+              day-rated, and save — this run will pick it up.
             </span>
           </div>
         )}

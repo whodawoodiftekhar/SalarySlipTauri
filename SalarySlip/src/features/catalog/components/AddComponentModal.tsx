@@ -1,10 +1,15 @@
-import { Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
 import { CALC_OPTIONS } from "@/shared/lib/calc";
 import type { CatalogItem, ComponentGroup } from "@/shared/types";
+import {
+  componentCodeNote,
+  isComponentCode,
+  normalizeComponentCode,
+} from "../lib/componentCode";
 
 export function AddComponentModal({
   saving,
@@ -23,18 +28,26 @@ export function AddComponentModal({
     taxable: "Yes",
   });
 
+  const [codeNote, setCodeNote] = useState("");
+
   const set =
     (k: keyof typeof f) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
-  const valid = Boolean(f.code.trim() && f.name.trim());
+  // the field holds the normalised code; the note reports what was corrected
+  const setCode = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setF({ ...f, code: normalizeComponentCode(e.target.value) });
+    setCodeNote(componentCodeNote(e.target.value));
+  };
+
+  const valid = isComponentCode(f.code) && Boolean(f.name.trim());
 
   // no display order here on purpose — the API numbers a new component last,
   // so adding one never reshuffles the salary form. Renumber it from Edit.
   const save = () => {
     onSave({
-      code: f.code.trim().toUpperCase(),
+      code: f.code,
       name: f.name.trim(),
       group: f.group as ComponentGroup,
       calc: f.calc,
@@ -61,8 +74,10 @@ export function AddComponentModal({
               <input
                 className={FIELD_INPUT}
                 value={f.code}
-                onChange={set("code")}
+                onChange={setCode}
                 placeholder="e.g. BONUS"
+                autoCapitalize="characters"
+                spellCheck={false}
               />
             </Field>
 
@@ -75,6 +90,13 @@ export function AddComponentModal({
               />
             </Field>
           </div>
+
+          {codeNote && (
+            <p className="-mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn-line bg-warn-bg px-2.5 py-2 text-[11.5px] leading-[1.45] text-warn-ink">
+              <AlertTriangle size={13} className="mt-[1px] flex-none" />
+              {codeNote}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Component Group">

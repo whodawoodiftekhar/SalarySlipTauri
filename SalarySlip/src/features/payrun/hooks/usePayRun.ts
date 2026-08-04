@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAsync } from "@/shared/hooks/useAsync";
-import { compute } from "@/shared/lib/calc";
+import { compute, dayRates } from "@/shared/lib/calc";
 import { num, round2 } from "@/shared/lib/format";
 import { PERIOD_OPTIONS } from "@/shared/lib/periods";
 import { payRunService } from "../services/payRunService";
@@ -48,10 +48,10 @@ export function usePayRun() {
       const daysPayable = Math.min(Math.max(num(override), 0), row.daysInMonth);
       const res = compute(row.components, row.daysInMonth, daysPayable);
 
-      // same rule the server applies: day-rating is in effect only where the
-      // employee's own structure has lines marked prorate
+      // same rule the server applies: earnings and PF day-rate unless every
+      // line in the structure is marked fixed
       const hasLop = daysPayable < row.daysInMonth;
-      const dayRated = hasLop && row.components.some((c) => c.prorate);
+      const dayRated = hasLop && row.components.some(dayRates);
 
       return {
         ...row,

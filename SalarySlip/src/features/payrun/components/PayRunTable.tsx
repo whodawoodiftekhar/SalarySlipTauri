@@ -128,7 +128,7 @@ export function PayRunTable({
                   {row.lopHasNoEffect && (
                     <span
                       className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-warn-ink"
-                      title="No component in this structure is marked prorate, so fewer days does not reduce pay. Turn on 'Prorate earnings for part-month' above."
+                      title="Every line in this structure is marked as paid whole, so fewer days does not reduce pay. Open this employee's payroll screen and tick LOP on the lines that should be day-rated."
                     >
                       <AlertTriangle size={12} /> LOP has no effect on pay
                     </span>

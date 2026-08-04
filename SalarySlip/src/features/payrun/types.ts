@@ -14,9 +14,9 @@ export interface PayRunRow {
   totalDeductions: number;
   net: number;
   factor: number;
-  /** day-rating is reducing pay, because the structure has lines marked prorate */
+  /** fewer days are actually reducing this employee's pay */
   dayRated: boolean;
-  /** fewer days entered, but nothing in the structure day-rates */
+  /** fewer days entered, but every line is marked as paid whole */
   lopHasNoEffect: boolean;
   /** days came from the LOP register saved on the per-employee screen */
   daysFromRegister: boolean;

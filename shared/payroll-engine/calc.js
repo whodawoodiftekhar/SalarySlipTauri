@@ -24,6 +24,25 @@ export const num = (v) =>
   v === "" || v == null || isNaN(Number(v)) ? 0 : Number(v);
 
 /**
+ * Whether a part-month reduces this line.
+ *
+ * Earnings and statutory PF are day-rated by default — 20 days payable out of
+ * 30 means 20 days of salary, and PF is 12% of the Basic actually paid. This
+ * used to be a per-line opt-in, which meant a part-month run quietly paid a
+ * full month on every structure where nobody had ticked anything.
+ *
+ * The two escapes stay explicit:
+ *   - `fixed: true`    pays the line whole no matter how few days are payable
+ *                      (a reimbursement, a fixed bonus)
+ *   - `prorate: true`  day-rates a deduction that would otherwise stay whole
+ *                      (a loan instalment; TDS and PT normally should not)
+ */
+export const dayRates = (c) =>
+  c && !c.fixed
+    ? c.group === "earning" || c.calc === "statutory_pf" || Boolean(c.prorate)
+    : false;
+
+/**
  * Resolves a salary structure into rupee amounts.
  *
  * Order matters: flat values settle first so Basic is known, then % of Basic,
@@ -60,7 +79,7 @@ export function compute(components, daysInMonth, daysPayable) {
 
   list.forEach((c) => {
     if (c.calc === "statutory_pf") {
-      amt[c.id] = Math.min(basic * (c.prorate ? factor : 1) * PF_RATE, PF_CAP);
+      amt[c.id] = Math.min(basic * (dayRates(c) ? factor : 1) * PF_RATE, PF_CAP);
     }
   });
 
@@ -68,7 +87,7 @@ export function compute(components, daysInMonth, daysPayable) {
   list.forEach((c) => {
     let a = amt[c.id] ?? 0;
     // PF already had the factor folded into its own base above
-    if (c.calc !== "statutory_pf" && c.prorate) a *= factor;
+    if (c.calc !== "statutory_pf" && dayRates(c)) a *= factor;
     final[c.id] = round2(a);
   });
 
@@ -162,6 +181,8 @@ export const makeStructure = (e = {}, dbComponents = []) => {
       value = num(comp.value ?? (calc === "pct_basic" ? extractedPct : 0));
     }
 
+    // both flags off: earnings and PF day-rate by default (see dayRates), and a
+    // flat deduction such as TDS stays whole
     return {
       id,
       name: comp.name,
@@ -169,6 +190,7 @@ export const makeStructure = (e = {}, dbComponents = []) => {
       calc,
       value,
       prorate: false,
+      fixed: false,
       ...(isBasic ? { isBasic: true } : {}),
     };
   });
@@ -194,6 +216,7 @@ export const makeStructure = (e = {}, dbComponents = []) => {
       calc: x.calc,
       value: val,
       prorate: false,
+      fixed: false,
     });
   });
 

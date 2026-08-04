@@ -15,7 +15,10 @@ export interface EngineComponent {
   calc: EngineCalc;
   /** loose because the editor binds it straight to an <input> */
   value: number | string;
+  /** force-day-rate a deduction that would otherwise be paid whole */
   prorate: boolean;
+  /** pay this line whole however few days are payable */
+  fixed?: boolean;
   isBasic?: boolean;
 }
 
@@ -34,6 +37,9 @@ export declare const PF_CAP: number;
 export declare function round2(n: number | null | undefined): number;
 
 export declare function num(v: unknown): number;
+
+/** Whether a part-month reduces this line. */
+export declare function dayRates(c: Partial<EngineComponent> | undefined): boolean;
 
 export declare function compute<T extends EngineComponent>(
   components: readonly T[],

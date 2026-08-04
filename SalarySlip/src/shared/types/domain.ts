@@ -15,7 +15,10 @@ export interface SalaryComponent {
   calc: CalcMethod;
   /** kept loose because the editor binds it straight to an <input> */
   value: number | string;
+  /** force-day-rate a deduction that would otherwise be paid whole */
   prorate: boolean;
+  /** pay this line whole however few days are payable */
+  fixed?: boolean;
   isBasic?: boolean;
 }
 

@@ -1,10 +1,15 @@
-import { Loader2, Save, X } from "lucide-react";
+import { AlertTriangle, Loader2, Save, X } from "lucide-react";
 import { useState } from "react";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
 import { CALC_OPTIONS } from "@/shared/lib/calc";
 import type { CatalogItem } from "@/shared/types";
+import {
+  componentCodeNote,
+  isComponentCode,
+  normalizeComponentCode,
+} from "../lib/componentCode";
 
 export function EditComponentModal({
   item,
@@ -18,6 +23,7 @@ export function EditComponentModal({
   onSave: (code: string, patch: Partial<CatalogItem>) => Promise<void>;
 }) {
   const [f, setF] = useState({
+    code: item.code ?? "",
     name: item.name ?? "",
     group: item.group ?? ("earning" as CatalogItem["group"]),
     calc: item.calc ?? "Flat ₹",
@@ -30,10 +36,22 @@ export function EditComponentModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
-  const valid = Boolean(f.name.trim() && f.calc.trim());
+  const [codeNote, setCodeNote] = useState("");
+
+  // the field holds the normalised code; the note reports what was corrected
+  const setCode = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setF({ ...f, code: normalizeComponentCode(e.target.value) });
+    setCodeNote(componentCodeNote(e.target.value));
+  };
+
+  const code = f.code.trim();
+  const renaming = code !== item.code;
+  const valid = isComponentCode(code) && Boolean(f.name.trim() && f.calc.trim());
 
   const handleSave = async () => {
+    // the current code addresses the row; the new one travels in the patch
     await onSave(item.code, {
+      code,
       name: f.name.trim(),
       group: f.group as CatalogItem["group"],
       calc: f.calc.trim(),
@@ -61,13 +79,30 @@ export function EditComponentModal({
         </div>
 
         <div className="space-y-3">
-          <Field label="Component Code">
+          <Field label="Component Code *">
             <input
-              className={`${FIELD_INPUT} bg-paper text-ash cursor-not-allowed`}
-              value={item.code}
-              disabled
+              className={FIELD_INPUT}
+              value={f.code}
+              onChange={setCode}
+              placeholder="e.g. BONUS"
+              autoCapitalize="characters"
+              spellCheck={false}
             />
           </Field>
+          {codeNote && (
+            <p className="-mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn-line bg-warn-bg px-2.5 py-2 text-[11.5px] leading-[1.45] text-warn-ink">
+              <AlertTriangle size={13} className="mt-[1px] flex-none" />
+              {codeNote}
+            </p>
+          )}
+          {renaming && (
+            <p className="-mt-1.5 text-[11.5px] leading-[1.45] text-warn-ink">
+              Renaming {item.code} to {code || "—"} changes the field this component
+              uses on the employee salary form, so amounts already saved under{" "}
+              {item.code} stay where they are. Salary structures already assigned
+              keep paying exactly as they do now.
+            </p>
+          )}
 
           <Field label="Component Name *">
             <input

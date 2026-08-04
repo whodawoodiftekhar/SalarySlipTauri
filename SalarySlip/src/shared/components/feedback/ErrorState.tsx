@@ -1,4 +1,5 @@
 import { AlertTriangle, RotateCw } from "lucide-react";
+import { errorMessage } from "@/services";
 import { Button } from "@/shared/components/ui/Button";
 
 
@@ -20,7 +21,7 @@ export function ErrorState({
       </span>
       <b className="text-[14px]">{title}</b>
       <small className="max-w-[420px] text-[12.5px] leading-[1.5] text-ash">
-        {error.message}
+        {errorMessage(error)}
       </small>
       {onRetry && (
         <Button variant="ghost" className="mt-2" onClick={onRetry}>
