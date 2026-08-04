@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Mail, Check, AlertCircle, Send, Copy, X, Paperclip, Download } from "lucide-react";
+import { Mail, Check, AlertCircle, Send, Copy, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { inr } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
@@ -40,12 +40,13 @@ export function SendOutlookEmailModal({
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   const companyLegal = company.legalName || company.name || "COMM-IT INDIA PVT. LTD.";
   const subject = `Payslip for ${period} — ${companyLegal}`;
 
-  // Formatted email body text state (editable by user)
+  // Formatted email body text state (editable by user).
+  // Deliberately never quotes the PDF password — see payslipMessage() in
+  // Backend/src/lib/payslipPayload.js; the password is shared out of band.
   const [emailBodyText, setEmailBodyText] = useState(`Dear ${emp.name},
 
 Please find the attached salary slip for the month of ${period}.
@@ -113,8 +114,11 @@ ${companyLegal}
     }
   };
 
+  /**
+   * Kept as the offline fallback for handleDirectSend — the attachment row that
+   * used to expose it has been removed, so nothing calls it from the UI.
+   */
   const handleDownloadAttachment = async (): Promise<boolean> => {
-    setDownloading(true);
     setSendError(null);
     setSendSuccess(null);
 
@@ -159,8 +163,6 @@ ${companyLegal}
         `Could not reach the PDF service at ${env.apiUrl}. Make sure the backend is running.`,
       );
       return false;
-    } finally {
-      setDownloading(false);
     }
   };
 
@@ -274,22 +276,6 @@ ${companyLegal}
           <div className="flex flex-wrap justify-between items-center text-[13px] gap-2">
             <span className="font-semibold text-slate-500">Net Pay Amount:</span>
             <span className="font-mono text-[16px] font-extrabold text-emerald-600">₹ {inr(res.net)}</span>
-          </div>
-
-          {/* Auto Generated Payslip Attachment Badge */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex items-center gap-2.5 text-[13px] font-semibold text-slate-700">
-              <Paperclip size={16} className="text-[#0078D4]" />
-              <span>Auto-Generated Attachment: <b className="text-slate-900">{attachmentFileName}</b></span>
-            </div>
-            <button
-              onClick={handleDownloadAttachment}
-              disabled={downloading}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-700 hover:bg-slate-200 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              title="Download attachment file"
-            >
-              <Download size={14} /> {downloading ? "Generating…" : "Download File"}
-            </button>
           </div>
 
           <div className="relative">

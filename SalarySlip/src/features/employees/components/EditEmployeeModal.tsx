@@ -4,6 +4,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import { num } from "@/shared/lib/format";
 import type { RosterEntry, SalaryComponent } from "@/shared/types";
 import { employeeService } from "../services/employeeService";
@@ -35,6 +36,7 @@ export function EditEmployeeModal({
     uan: employee.uan ?? "",
     doj: employee.doj ?? "",
     paymentMode: employee.paymentMode ?? "Bank Transfer",
+    pdfPassword: employee.pdfPassword ?? "",
   });
 
   // Initialize structure components directly from employee's active slip earnings & deductions
@@ -127,6 +129,8 @@ export function EditEmployeeModal({
         uan: f.uan.trim(),
         doj: f.doj.trim(),
         paymentMode: f.paymentMode.trim(),
+        // trimmed because a stray space would be invisible in the covering mail
+        pdfPassword: f.pdfPassword.trim(),
       });
 
       // Save exact salary structure components
@@ -231,6 +235,13 @@ export function EditEmployeeModal({
                   value={f.role}
                   onChange={set("role")}
                   placeholder="e.g. Senior Software Engineer"
+                />
+              </Field>
+              <Field label="PDF Password">
+                <PasswordInput
+                  value={f.pdfPassword}
+                  onChange={set("pdfPassword")}
+                  placeholder="Leave blank for no protection"
                 />
               </Field>
             </div>

@@ -29,4 +29,5 @@ export interface EmployeeFormState {
   uan: string;
   doj: string;
   paymentMode: string;
+  pdfPassword: string;
 }

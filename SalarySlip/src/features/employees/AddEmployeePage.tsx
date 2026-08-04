@@ -5,6 +5,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import { LOGO } from "@/shared/lib/branding";
 import { inr, num } from "@/shared/lib/format";
 import { compute, makeStructure } from "@/shared/lib/calc";
@@ -44,6 +45,7 @@ export default function AddEmployeePage() {
     uan: "",
     doj: "",
     paymentMode: "Bank Transfer",
+    pdfPassword: "",
   });
 
   useEffect(() => {
@@ -166,6 +168,8 @@ export default function AddEmployeePage() {
         pan: f.pan.trim(),
         uan: f.uan.trim(),
         doj: f.doj.trim(),
+        // trimmed because a stray space would be invisible in the covering mail
+        pdfPassword: f.pdfPassword.trim(),
         paymentMode: f.paymentMode.trim(),
       });
       if (employee && employee.id) {
@@ -239,6 +243,13 @@ export default function AddEmployeePage() {
                   value={f.role}
                   onChange={set("role")}
                   placeholder="e.g. Senior Software Engineer"
+                />
+              </Field>
+              <Field label="PDF Password">
+                <PasswordInput
+                  value={f.pdfPassword}
+                  onChange={set("pdfPassword")}
+                  placeholder="Leave blank for no protection"
                 />
               </Field>
             </div>

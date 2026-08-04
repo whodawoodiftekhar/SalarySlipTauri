@@ -140,10 +140,45 @@ export function createPayslipPdfBuffer({
   gross = 0,
   totalDeductions = 0,
   net = 0,
+  // rendered in the metadata table as "Days Payable"; both were referenced
+  // there without ever being accepted as parameters, which threw a
+  // ReferenceError on every single call
+  daysInMonth = 30,
+  daysPayable = 30,
+  pdfPassword = "",
 }) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 30, size: "A4" });
+      /**
+       * Encryption is opt-in per employee: with no password on record the
+       * document is written exactly as it always was, so existing employees and
+       * every already-issued slip are unaffected.
+       *
+       * `userPassword` is what the employee types to open it. `ownerPassword` is
+       * a separate secret so the permissions below cannot simply be stripped —
+       * reusing the user password there would let anyone who can open the file
+       * also lift the restrictions.
+       *
+       * `pdfVersion` picks the cipher, and pdfkit only understands a fixed set:
+       * "1.4"/"1.5" give RC4-128, "1.6"/"1.7" give AES-128, "1.7ext3" gives
+       * AES-256. Anything else — including a plausible-looking "2.0" — hits the
+       * `default` branch of its switch and silently produces RC4-40, the weakest
+       * option there is, with no error. So this string is load-bearing: verify
+       * the /Encrypt dictionary if you ever change it.
+       *
+       * "1.7ext3" is the strongest pdfkit 0.19 can do. It is AES-256 at revision
+       * 5; the stronger revision 6 from ISO 32000-2 is not implemented here.
+       */
+      const encryption = pdfPassword
+        ? {
+            userPassword: pdfPassword,
+            ownerPassword: `${pdfPassword}::owner`,
+            pdfVersion: "1.7ext3",
+            permissions: { printing: "highResolution", copying: false, modifying: false },
+          }
+        : {};
+
+      const doc = new PDFDocument({ margin: 30, size: "A4", ...encryption });
       const buffers = [];
 
       doc.on("data", (chunk) => buffers.push(chunk));

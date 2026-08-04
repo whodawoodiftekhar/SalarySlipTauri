@@ -40,6 +40,12 @@ export function buildPayslipPdfInput({ payslip, employee = {}, settings = {}, em
     role: employee.role || "",
     period: payslip.period,
     emailBody: emailBody ?? "",
+    // from the finalized snapshot, so a reprint shows the days it was costed on
+    daysInMonth: payslip.daysInMonth,
+    daysPayable: payslip.daysPayable,
+    // Read from the employee, not the payslip snapshot: changing the password
+    // must take effect on every reprint, unlike the pay figures.
+    pdfPassword: employee.pdfPassword || "",
     netPay: money(result.net),
     pan: employee.pan || "",
     uan: employee.uan || "",
@@ -90,6 +96,10 @@ export const defaultEmailBody = payslipEmailBody;
  *
  * Single source for all three delivery paths — SMTP, a direct Outlook send and
  * the draft fallback — so the same mail is composed no matter which one runs.
+ *
+ * The PDF password is deliberately NOT mentioned here. Mailing it alongside the
+ * attachment would defeat the encryption, so employees are told their password
+ * out of band.
  */
 export function payslipMessage({ payslip, employee = {}, settings = {}, to, emailBody }) {
   const companyName = settings?.company?.legalName || settings?.company?.name;

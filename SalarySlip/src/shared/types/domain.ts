@@ -59,6 +59,11 @@ export interface Employee {
   uan?: string;
   doj?: string;
   paymentMode?: string;
+  /**
+   * Opens this employee's payslip PDFs. Blank means the PDF is written
+   * unencrypted, which is what every employee predating this field gets.
+   */
+  pdfPassword?: string;
 }
 
 /** The fields the default salary structure is generated from. */

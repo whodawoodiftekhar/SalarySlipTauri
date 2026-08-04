@@ -28,6 +28,12 @@ const employeeSchema = new mongoose.Schema(
     uan: { type: String, default: "", trim: true },
     doj: { type: String, default: "", trim: true },
     paymentMode: { type: String, default: "Bank Transfer", trim: true },
+    /**
+     * Opens this employee's payslip PDFs, and is quoted in the covering mail.
+     * Empty means the PDF is written unencrypted — the behaviour every employee
+     * had before this field existed.
+     */
+    pdfPassword: { type: String, default: "", trim: true },
   },
   {
     strict: false,

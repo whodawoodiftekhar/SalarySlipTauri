@@ -578,6 +578,11 @@ router.post("/launch-outlook", async (req, res) => {
     fs.mkdirSync(downloadsDir, { recursive: true });
     const pdfPath = path.join(downloadsDir, pdfFileName);
 
+    // password and day counts come from our own records, not the request
+    const draftFor = employeeId
+      ? await Employee.findOne({ id: employeeId }).lean()
+      : null;
+
     const pdfBuffer = await createPayslipPdfBuffer({
       employeeId,
       employeeName,
@@ -585,6 +590,9 @@ router.post("/launch-outlook", async (req, res) => {
       role,
       period,
       emailBody,
+      pdfPassword: draftFor?.pdfPassword || "",
+      daysInMonth: req.body?.daysInMonth,
+      daysPayable: req.body?.daysPayable,
       netPay,
       pan,
       uan,
@@ -653,6 +661,16 @@ router.post("/generate-pdf", async (req, res) => {
 
   try {
     const settings = await getSettings();
+
+    /**
+     * This route takes the slip figures from the request, but the PDF password
+     * is read from the employee record on purpose — a client must not be able to
+     * pick the encryption password, or weaken it by omitting one.
+     */
+    const employee = employeeId
+      ? await Employee.findOne({ id: employeeId }).lean()
+      : null;
+
     const pdfBuffer = await createPayslipPdfBuffer({
       employeeId,
       employeeName,
@@ -660,6 +678,9 @@ router.post("/generate-pdf", async (req, res) => {
       role,
       period,
       emailBody,
+      pdfPassword: employee?.pdfPassword || "",
+      daysInMonth: req.body?.daysInMonth,
+      daysPayable: req.body?.daysPayable,
       netPay,
       pan,
       uan,

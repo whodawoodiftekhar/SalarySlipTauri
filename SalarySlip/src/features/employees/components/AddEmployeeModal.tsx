@@ -5,6 +5,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
+import { PasswordInput } from "@/shared/components/ui/PasswordInput";
 import { LOGO } from "@/shared/lib/branding";
 import { inr, num } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
@@ -45,6 +46,7 @@ export function AddEmployeeModal({
     uan: "",
     doj: "",
     paymentMode: "Bank Transfer",
+    pdfPassword: "",
   });
 
   // the next free code is assigned by the API, not guessed in the browser
@@ -115,6 +117,8 @@ export function AddEmployeeModal({
       uan: f.uan.trim(),
       doj: f.doj.trim(),
       paymentMode: f.paymentMode.trim(),
+      // trimmed because a stray space would be invisible in the covering mail
+      pdfPassword: f.pdfPassword.trim(),
     });
 
   return (
@@ -177,6 +181,13 @@ export function AddEmployeeModal({
                   value={f.role}
                   onChange={set("role")}
                   placeholder="e.g. Senior Software Engineer"
+                />
+              </Field>
+              <Field label="PDF Password">
+                <PasswordInput
+                  value={f.pdfPassword}
+                  onChange={set("pdfPassword")}
+                  placeholder="Leave blank for no protection"
                 />
               </Field>
             </div>
