@@ -24,8 +24,10 @@ export interface EmployeeFormState {
   bankName: string;
   bankAccountNo: string;
   pfAccountNo: string;
+  ifsc: string;
   pan: string;
   uan: string;
   doj: string;
   paymentMode: string;
+  pdfPassword: string;
 }

@@ -4,7 +4,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { Button } from "@/shared/components/ui/Button";
 import { Overlay } from "@/shared/components/ui/Overlay";
 import { LOGO } from "@/shared/lib/branding";
-import { inr } from "@/shared/lib/format";
+import { inr, toWords } from "@/shared/lib/format";
 import type { ComputedComponent, Employee, PayrollResult } from "@/shared/types";
 import { SendOutlookEmailModal } from "./SendOutlookEmailModal";
 
@@ -128,28 +128,39 @@ export function GeneratedSlip({
               <MetaRow
                 k1="Employee Name"
                 v1={emp.name}
-                k2="Designation"
-                v2={emp.role}
-              />
-              <MetaRow
-                k1="Employee Code"
-                v1={emp.id}
                 k2="Bank Name"
                 v2={emp.bankName || slipDefaults.bankName}
               />
               <MetaRow
+                k1="Employee Code"
+                v1={emp.id}
+                k2="IFSC Code"
+                v2={emp.ifsc || ""}
+              />
+              <MetaRow
+                k1="Designation"
+                v1={emp.role}
+                k2="Account No."
+                v2={emp.bankAccountNo || slipDefaults.bankAccountNo}
+              />
+              <MetaRow
                 k1="Department"
                 v1={emp.dept}
-                k2="Bank Account No."
-                v2={emp.bankAccountNo || slipDefaults.bankAccountNo}
+                k2="PF Account No."
+                v2={emp.pfAccountNo || slipDefaults.pfAccountNo}
               />
               <MetaRow
                 k1="Days in Month"
                 v1={dim}
-                k2="PF Account No."
-                v2={emp.pfAccountNo || slipDefaults.pfAccountNo}
+                k2=""
+                v2=""
               />
-              <MetaRow k1="Days Payable" v1={dpay} k2="" v2="" />
+              <MetaRow
+                k1="Days Payable"
+                v1={dpay}
+                k2=""
+                v2=""
+              />
 
               {/* Components banner */}
               <tr>
@@ -206,12 +217,20 @@ export function GeneratedSlip({
                   {inr(res.net)}
                 </td>
               </tr>
+              <tr>
+                <td className="text-left font-extrabold text-[13.5px]">In Words</td>
+                <td colSpan={3} className="text-left font-bold text-[12.5px]">
+                  {toWords(res.net)}
+                </td>
+              </tr>
             </tbody>
           </table>
 
-          {/* Footer Note */}
-          <div className="mt-2.5 text-[11.5px] text-[#333] font-normal">
-            {slipDefaults?.footNote || "This is a computer generated salary slip and does not require signature"}
+          <div className="w-full mt-2.5 flex justify-center">
+            <p className="text-[11.5px] text-[#333] font-normal text-center">
+              {slipDefaults?.footNote?.trim() ||
+                "This is a computer generated salary slip and does not require signature."}
+            </p>
           </div>
         </div>
       </div>

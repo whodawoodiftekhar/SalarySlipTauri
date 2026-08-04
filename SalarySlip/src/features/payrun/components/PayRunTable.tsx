@@ -25,7 +25,7 @@ export function PayRunTable({
   const allSelected = excluded.length === 0;
 
   return (
-    <table className="w-full border-collapse max-mob:min-w-[860px]">
+    <table className="w-full border-collapse max-mob:min-w-[940px]">
       <thead>
         <tr>
           <th className={`${TH} w-[38px]`}>
@@ -40,6 +40,7 @@ export function PayRunTable({
           </th>
           <th className={TH}>Employee</th>
           <th className={TH}>Department</th>
+          <th className={`${TH} text-center`}>Days in month</th>
           <th className={`${TH} text-center`}>Days payable</th>
           <th className={`${TH} text-right`}>Gross</th>
           <th className={`${TH} text-right`}>Deductions</th>
@@ -50,6 +51,18 @@ export function PayRunTable({
       <tbody className="[&>tr:last-child>td]:border-b-0">
         {rows.map((row) => {
           const included = !excluded.includes(row.employeeId);
+
+          // Never show a count the run would not honour. A draft above the
+          // month's length is clamped for the totals, so displaying it raw made
+          // the box disagree with the gross and net beside it. An empty or
+          // part-typed value is left alone so the field stays editable.
+          const draft = daysDraft[row.employeeId];
+          const daysShown =
+            draft == null
+              ? String(row.daysPayable)
+              : Number(draft) > row.daysInMonth
+                ? String(row.daysInMonth)
+                : draft;
 
           return (
             <tr key={row.employeeId} className={included ? undefined : "opacity-45"}>
@@ -78,18 +91,21 @@ export function PayRunTable({
 
               <td className={`${TD} text-[13px] text-ash`}>{row.dept || "—"}</td>
 
+              <td className={`${TD} text-center font-mono tabular-nums text-mist`}>
+                {row.daysInMonth}
+              </td>
+
               <td className={`${TD} text-center`}>
                 <input
                   type="number"
                   min={0}
                   max={row.daysInMonth}
                   className="w-[74px] rounded-lg border border-line px-2 py-[6px] text-center tabular-nums focus:border-accent focus:outline-none"
-                  value={daysDraft[row.employeeId] ?? String(row.daysPayable)}
+                  value={daysShown}
                   onChange={(e) => onDaysChange(row.employeeId, e.target.value)}
                   disabled={!included}
                   aria-label={`Days payable for ${row.employeeName}`}
                 />
-                <span className="ml-1 text-[12px] text-mist">/{row.daysInMonth}</span>
               </td>
 
               <td className={`${TD} text-right font-mono tabular-nums`}>

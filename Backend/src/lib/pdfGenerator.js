@@ -60,6 +60,63 @@ function formatMoney(val) {
   return safeNum(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function numberToWords(amount) {
+  const n = Math.abs(safeNum(amount));
+  if (n === 0) return "Rupees Zero Only";
+
+  const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const convertBelowThousand = (numVal) => {
+    let str = "";
+    if (numVal >= 100) {
+      str += units[Math.floor(numVal / 100)] + " Hundred";
+      numVal %= 100;
+      if (numVal > 0) str += " ";
+    }
+    if (numVal > 0) {
+      if (numVal < 20) {
+        str += units[numVal];
+      } else {
+        str += tens[Math.floor(numVal / 10)];
+        if (numVal % 10 > 0) str += " " + units[numVal % 10];
+      }
+    }
+    return str;
+  };
+
+  const rupeesInt = Math.floor(n);
+  const paiseInt = Math.round((n - rupeesInt) * 100);
+
+  let rupeeStr = "";
+  let tempRupees = rupeesInt;
+
+  if (tempRupees >= 10000000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 10000000)) + " Crore ";
+    tempRupees %= 10000000;
+  }
+  if (tempRupees >= 100000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 100000)) + " Lakh ";
+    tempRupees %= 100000;
+  }
+  if (tempRupees >= 1000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 1000)) + " Thousand ";
+    tempRupees %= 1000;
+  }
+  if (tempRupees > 0) {
+    rupeeStr += convertBelowThousand(tempRupees);
+  }
+
+  rupeeStr = rupeeStr.trim();
+  let result = rupeeStr ? `Rupees ${rupeeStr}` : "Rupees Zero";
+  if (paiseInt > 0) {
+    result += ` and ${convertBelowThousand(paiseInt)} Paise`;
+  }
+  result += " Only";
+
+  return result;
+}
+
 export function createPayslipPdfBuffer({
   employeeId,
   employeeName,
@@ -77,15 +134,51 @@ export function createPayslipPdfBuffer({
   bankName,
   bankAccountNo,
   pfAccountNo,
+  ifsc,
   earnings = [],
   deductions = [],
   gross = 0,
   totalDeductions = 0,
   net = 0,
+  // rendered in the metadata table as "Days Payable"; both were referenced
+  // there without ever being accepted as parameters, which threw a
+  // ReferenceError on every single call
+  daysInMonth = 30,
+  daysPayable = 30,
+  pdfPassword = "",
 }) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 30, size: "A4" });
+      /**
+       * Encryption is opt-in per employee: with no password on record the
+       * document is written exactly as it always was, so existing employees and
+       * every already-issued slip are unaffected.
+       *
+       * `userPassword` is what the employee types to open it. `ownerPassword` is
+       * a separate secret so the permissions below cannot simply be stripped —
+       * reusing the user password there would let anyone who can open the file
+       * also lift the restrictions.
+       *
+       * `pdfVersion` picks the cipher, and pdfkit only understands a fixed set:
+       * "1.4"/"1.5" give RC4-128, "1.6"/"1.7" give AES-128, "1.7ext3" gives
+       * AES-256. Anything else — including a plausible-looking "2.0" — hits the
+       * `default` branch of its switch and silently produces RC4-40, the weakest
+       * option there is, with no error. So this string is load-bearing: verify
+       * the /Encrypt dictionary if you ever change it.
+       *
+       * "1.7ext3" is the strongest pdfkit 0.19 can do. It is AES-256 at revision
+       * 5; the stronger revision 6 from ISO 32000-2 is not implemented here.
+       */
+      const encryption = pdfPassword
+        ? {
+            userPassword: pdfPassword,
+            ownerPassword: `${pdfPassword}::owner`,
+            pdfVersion: "1.7ext3",
+            permissions: { printing: "highResolution", copying: false, modifying: false },
+          }
+        : {};
+
+      const doc = new PDFDocument({ margin: 30, size: "A4", ...encryption });
       const buffers = [];
 
       doc.on("data", (chunk) => buffers.push(chunk));
@@ -145,11 +238,12 @@ export function createPayslipPdfBuffer({
       const rowH = 18;
 
       const metaFields = [
-        ["Employee Name", employeeName || "Dawood", "Designation", role || "Junir"],
-        ["Employee Code", employeeId || "C11027", "Bank Name", bankName || "BUNB"],
-        ["Department", dept || "IT", "Bank Account No.", bankAccountNo || "500977255349"],
-        ["Days in Month", "30", "PF Account No.", pfAccountNo || "4322"],
-        ["Days Payable", "30", "", ""],
+        ["Employee Name", employeeName || "", "Bank Name", bankName || ""],
+        ["Employee Code", employeeId || "", "IFSC Code", ifsc || ""],
+        ["Designation", role || "", "Account No.", bankAccountNo || ""],
+        ["Department", dept || "", "PF Account No.", pfAccountNo || ""],
+        ["Days in Month", `${daysInMonth || 30}`, "", ""],
+        ["Days Payable", `${daysPayable || 30}`, "", ""],
       ];
 
       const metaTotalH = metaFields.length * rowH;
@@ -261,8 +355,15 @@ export function createPayslipPdfBuffer({
       doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text(formatMoney(netVal), 440, totalsY + 4, { width: 115, align: "right" });
       doc.moveTo(435, totalsY).lineTo(435, totalsY + rowH).stroke();
 
-      // Footnote at bottom
-      doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25);
+      totalsY += rowH;
+      // Row: In Words
+      doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
+      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text("In Words", 35, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(numberToWords(netVal), 155, totalsY + 4, { width: 405, lineBreak: false });
+      doc.moveTo(150, totalsY).lineTo(150, totalsY + rowH).stroke();
+
+      // Footnote at bottom, centred across the table's full width (x = 30 to 565)
+      doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25, { width: 535, align: "center" });
 
       doc.end();
     } catch (err) {

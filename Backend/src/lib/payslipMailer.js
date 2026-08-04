@@ -6,6 +6,7 @@
  * would look like a successful send to HR.
  */
 import path from "node:path";
+import { describeMailAccount } from "../models/MailAccount.js";
 import { Payslip } from "../models/Payslip.js";
 import { deliverViaOutlook, describeOutlookResult } from "./outlookLauncher.js";
 import { writePayslipPdf } from "./payslipExport.js";
@@ -43,7 +44,7 @@ export async function emailOnePayslip({
     };
   }
 
-  const { transporter, user } = createSmtpTransport(settings);
+  const { transporter, user } = await createSmtpTransport(settings);
 
   if (!transporter) {
     return {
@@ -167,6 +168,9 @@ export async function outlookSendPayslip({
       body,
       attachmentPath: written.filePath,
       send: true,
+      // the mailbox HR configured, so the From: is ours to decide rather than
+      // whichever account happens to be the Outlook profile default
+      sendAs: (await describeMailAccount()).user,
     });
 
     if (result !== "COM_SENT") {
@@ -217,20 +221,49 @@ export async function outlookSendPayslip({
  *
  * `auto` prefers SMTP when a password is configured (fast, no desktop client
  * involved) and otherwise drives Outlook, so HR gets a working "Email all"
- * either way rather than a row of skips.
+ * either way rather than a row of skips. If SMTP is configured but the provider
+ * refuses it, the desktop client is tried before giving up.
  */
 export async function deliverPayslip({
   via = "auto",
   fallbackToDraft = false,
   ...args
 }) {
-  const { transporter } = createSmtpTransport(args.settings ?? {});
+  const { transporter } = await createSmtpTransport(args.settings ?? {});
   const route = via === "auto" ? (transporter ? "smtp" : "outlook") : via;
 
-  const outcome =
+  let outcome =
     route === "outlook"
       ? await outlookSendPayslip(args)
       : { via: "smtp", ...(await emailOnePayslip(args)) };
+
+  /**
+   * Saved credentials the provider rejects must not take payroll down with them.
+   *
+   * Microsoft 365 refuses basic authentication by tenant policy — a mailbox can
+   * be spelled perfectly and still return "535 5.7.139 … the request did not meet
+   * the criteria to be authenticated". Storing such a password flips the route to
+   * SMTP, and without this the bulk mailer reported a row of failures even though
+   * the desktop client could have delivered every one of them.
+   *
+   * Only a genuine delivery failure falls through: `skipped` means there was no
+   * address on the employee, which Outlook cannot fix either. An explicit
+   * `via: "smtp"` is honoured as asked and never silently rerouted.
+   */
+  if (via === "auto" && route === "smtp" && !outcome.success && !outcome.skipped) {
+    const smtpMessage = outcome.message;
+    const viaOutlook = await outlookSendPayslip(args);
+
+    outcome = viaOutlook.success
+      ? {
+          ...viaOutlook,
+          message: `${viaOutlook.message} (SMTP was refused, so this went through Outlook — ${smtpMessage})`,
+        }
+      : {
+          ...viaOutlook,
+          message: `SMTP refused it (${smtpMessage}); Outlook could not send it either (${viaOutlook.message}).`,
+        };
+  }
 
   // A skip means there was no address to send to, and a draft with no recipient
   // helps nobody — only a genuine delivery failure is worth falling back for.
@@ -273,6 +306,7 @@ async function openDraftInstead({ payslip, employee = {}, settings = {}, to, ema
       attachmentPath: written.filePath,
       mode: "new",
       send: false,
+      sendAs: (await describeMailAccount()).user,
     });
 
     const draft = describeOutlookResult(result, written.fileName);

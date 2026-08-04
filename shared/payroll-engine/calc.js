@@ -26,21 +26,20 @@ export const num = (v) =>
 /**
  * Whether a part-month reduces this line.
  *
- * Earnings and statutory PF are day-rated by default — 20 days payable out of
- * 30 means 20 days of salary, and PF is 12% of the Basic actually paid. This
- * used to be a per-line opt-in, which meant a part-month run quietly paid a
- * full month on every structure where nobody had ticked anything.
+ * Day-rating is a **per-line opt-in**: only a line with `prorate: true` — the
+ * LOP box in the editor — is reduced when fewer days are payable. Everything
+ * else is paid whole, which is why a structure with nothing ticked reports "LOP
+ * has no effect on pay" no matter how few days are entered.
  *
- * The two escapes stay explicit:
- *   - `fixed: true`    pays the line whole no matter how few days are payable
- *                      (a reimbursement, a fixed bonus)
- *   - `prorate: true`  day-rates a deduction that would otherwise stay whole
- *                      (a loan instalment; TDS and PT normally should not)
+ * `fixed: true` is carried on every line and stored, but nothing reads it: with
+ * proration opt-in there is no default for it to opt out of. It is left in place
+ * for the structures that already hold it.
+ *
+ * New structures tick `prorate` on Basic only (see makeStructure), so a
+ * part-month run reduces Basic pay without anyone configuring it; every other
+ * line still has to be ticked deliberately.
  */
-export const dayRates = (c) =>
-  c && !c.fixed
-    ? c.group === "earning" || c.calc === "statutory_pf" || Boolean(c.prorate)
-    : false;
+export const dayRates = (c) => (c ? Boolean(c.prorate) : false);
 
 /**
  * Resolves a salary structure into rupee amounts.
@@ -181,15 +180,17 @@ export const makeStructure = (e = {}, dbComponents = []) => {
       value = num(comp.value ?? (calc === "pct_basic" ? extractedPct : 0));
     }
 
-    // both flags off: earnings and PF day-rate by default (see dayRates), and a
-    // flat deduction such as TDS stays whole
+    // Basic is day-rated from the outset: a part-month is nearly always meant to
+    // reduce it, and leaving it opt-in meant a fresh structure paid a full month
+    // however few days were entered. Everything else stays opt-in — an allowance
+    // or a deduction is ticked deliberately, per line.
     return {
       id,
       name: comp.name,
       group,
       calc,
       value,
-      prorate: false,
+      prorate: Boolean(isBasic),
       fixed: false,
       ...(isBasic ? { isBasic: true } : {}),
     };

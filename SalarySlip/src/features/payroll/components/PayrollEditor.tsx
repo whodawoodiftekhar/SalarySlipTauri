@@ -6,7 +6,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader } from "@/shared/components/ui/Card";
 import { num } from "@/shared/lib/format";
-import { PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { getCurrentPeriod, getRecentPeriods } from "@/shared/lib/periods";
 import type { Employee } from "@/shared/types";
 import { usePayrollRun } from "../hooks/usePayrollRun";
 import { payrollService } from "../services/payrollService";
@@ -25,15 +25,14 @@ const DAY_INPUT =
 
 export function PayrollEditor({
   emp,
-  period,
 }: {
   emp: Employee;
+  /** Company pay period from settings; the editor tracks its own selection. */
   period: string;
 }) {
   const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    PERIOD_OPTIONS.includes(period) ? period : period || "Jul 2026",
-  );
+  const currentMonth = getCurrentPeriod();
+  const [selectedPeriod, setSelectedPeriod] = useState(currentMonth);
   const {
     comps,
     res,
@@ -41,7 +40,6 @@ export function PayrollEditor({
     error,
     refetch,
     dim,
-    setDim,
     dpay,
     setDpay,
     update,
@@ -185,23 +183,31 @@ export function PayrollEditor({
                   value={selectedPeriod}
                   onChange={(e) => setSelectedPeriod(e.target.value)}
                 >
-                  {!PERIOD_OPTIONS.includes(selectedPeriod) && (
-                    <option value={selectedPeriod}>{selectedPeriod}</option>
-                  )}
-                  {PERIOD_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
+                  {(() => {
+                    const recentPeriods = getRecentPeriods(3);
+                    const allOptions = recentPeriods.includes(selectedPeriod)
+                      ? recentPeriods
+                      : [...recentPeriods, selectedPeriod];
+                    return allOptions.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
                 Days in month
+                {/* The month's length is the calendar's to state, not HR's — it
+                    comes from the period (or the count already stored for it).
+                    Days payable is the only figure edited on this screen. */}
                 <input
-                  className={DAY_INPUT}
+                  className={`${DAY_INPUT} cursor-not-allowed bg-paper text-mist`}
                   type="number"
                   value={dim}
-                  onChange={(e) => setDim(e.target.value)}
+                  readOnly
+                  aria-readonly="true"
+                  title={`${selectedPeriod} has ${dim} days — record LOP by lowering Days payable`}
                 />
               </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
@@ -209,6 +215,8 @@ export function PayrollEditor({
                 <input
                   className={DAY_INPUT}
                   type="number"
+                  min={0}
+                  max={dim}
                   value={dpay}
                   onChange={(e) => setDpay(e.target.value)}
                 />

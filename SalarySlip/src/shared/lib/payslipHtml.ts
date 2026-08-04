@@ -198,7 +198,7 @@ export function generateStyledPayslipHtml({
           <tr>
             <td>Department</td>
             <td style="font-weight: bold;">${emp.dept}</td>
-            <td>Bank Account No.</td>
+            <td>Account No.</td>
             <td style="font-weight: bold;">${emp.bankAccountNo || slipDefaults.bankAccountNo}</td>
           </tr>
           <tr>

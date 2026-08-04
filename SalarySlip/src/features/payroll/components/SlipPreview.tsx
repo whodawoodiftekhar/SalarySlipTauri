@@ -94,13 +94,15 @@ export function SlipPreview({
 
       <div className="grid grid-cols-2 gap-x-[18px] gap-y-[7px] border-b border-line pb-[14px]">
         <Meta label="Employee" value={emp.name} />
-        <Meta label="Designation" value={emp.role} />
-        <Meta label="Code" value={emp.id} />
         <Meta label="Bank Name" value={emp.bankName || slipDefaults.bankName} />
-        <Meta label="Department" value={emp.dept} />
+        <Meta label="Code" value={emp.id} />
+        <Meta label="IFSC Code" value={emp.ifsc || "—"} />
+        <Meta label="Designation" value={emp.role} />
         <Meta label="Bank Account" value={emp.bankAccountNo || slipDefaults.bankAccountNo} />
-        <Meta label="Days payable" value={`${dpay} / ${dim}`} />
+        <Meta label="Department" value={emp.dept} />
         <Meta label="PF Account" value={emp.pfAccountNo || slipDefaults.pfAccountNo} />
+        <Meta label="Days in month" value={dim} />
+        <Meta label="Days payable" value={dpay} />
       </div>
 
       <div className="mt-[14px] grid grid-cols-2">

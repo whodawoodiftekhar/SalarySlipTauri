@@ -1,5 +1,5 @@
 import { apiClient } from "@/services";
-import type { Employee } from "@/shared/types";
+import type { Employee, SalaryComponent } from "@/shared/types";
 import type { NewEmployeeDto, UpdateEmployeeDto } from "../types";
 
 export const employeeService = {
@@ -17,6 +17,14 @@ export const employeeService = {
 
   async update(id: string, patch: UpdateEmployeeDto): Promise<Employee> {
     return apiClient.put<Employee>(`/employees/${id}`, patch);
+  },
+
+  async getSalaryStructure(id: string): Promise<SalaryComponent[]> {
+    return apiClient.get<SalaryComponent[]>(`/employees/${id}/salary-structure`);
+  },
+
+  async updateSalaryStructure(id: string, components: SalaryComponent[]): Promise<SalaryComponent[]> {
+    return apiClient.put<SalaryComponent[]>(`/employees/${id}/salary-structure`, components);
   },
 
   /** Removes the employee along with their salary structure and payslips. */

@@ -97,7 +97,7 @@ export function ComponentRows({
               // one checkbox, two stored flags: `fixed` opts an earning out,
               // `prorate` opts a deduction in (see dayRates in the engine)
               onChange={(e) =>
-                update(c.id, { prorate: e.target.checked, fixed: !e.target.checked })
+                update(c.id, { prorate: e.target.checked })
               }
             />
             LOP

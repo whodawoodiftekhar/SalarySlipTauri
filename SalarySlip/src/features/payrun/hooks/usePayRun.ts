@@ -3,7 +3,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAsync } from "@/shared/hooks/useAsync";
 import { compute, dayRates } from "@/shared/lib/calc";
 import { num, round2 } from "@/shared/lib/format";
-import { PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { daysInPeriod, getCurrentPeriod } from "@/shared/lib/periods";
 import { payRunService } from "../services/payRunService";
 import type { PayRunRow } from "../types";
 
@@ -17,15 +17,39 @@ import type { PayRunRow } from "../types";
  * stored never depends on the browser.
  */
 export function usePayRun() {
-  const { payPeriod, standardDays } = useSettings();
+  const { standardDays } = useSettings();
 
-  const [period, setPeriod] = useState(
-    PERIOD_OPTIONS.includes(payPeriod) ? payPeriod : payPeriod || PERIOD_OPTIONS[0],
-  );
-  const [daysInMonth, setDaysInMonth] = useState(String(standardDays));
-
+  /**
+   * The run opens on the month HR is actually in.
+   *
+   * This used to prefer the pay period configured in Settings, which silently
+   * lags the moment the calendar moves on — in August it still opened on July.
+   * That setting is a label other screens show (the dashboard's "Run …" button);
+   * it is not a statement about which month wants finalizing next. The
+   * per-employee editor already defaults to the current month, so the two
+   * screens now agree.
+   */
+  const [period, setPeriodState] = useState(getCurrentPeriod());
+  const [daysInMonthOverride, setDaysInMonthOverride] = useState<string | null>(null);
   /** Per-employee days payable, only for rows HR actually changed. */
   const [days, setDays] = useState<Record<string, string>>({});
+
+  const calendarDays = daysInPeriod(period);
+  const daysInMonth = daysInMonthOverride ?? String(calendarDays);
+
+  const setPeriod = useCallback((newPeriod: string) => {
+    setPeriodState(newPeriod);
+    setDaysInMonthOverride(null);
+    // Day counts belong to the period they were entered for, so they cannot
+    // carry over: 31 days typed for July is not a valid figure for a 30-day
+    // June, and leaving it behind showed a stale count against the new month.
+    setDays({});
+  }, []);
+
+  const setDaysInMonth = useCallback((val: string) => {
+    setDaysInMonthOverride(val);
+  }, []);
+
   /** Tracked as exclusions so employees added later default to included. */
   const [excluded, setExcluded] = useState<string[]>([]);
 
@@ -125,8 +149,29 @@ export function usePayRun() {
     [],
   );
 
-  /** Clears every per-employee day edit back to the full month. */
-  const resetDays = useCallback(() => setDays({}), []);
+  /**
+   * Puts every employee back on the full month.
+   *
+   * The day count is written explicitly rather than by clearing the drafts, and
+   * that is the whole point: an absent draft lets the server fall back to
+   * whatever LOP was saved for this period on the per-employee screen, so
+   * `setDays({})` would snap straight back to those saved figures instead of the
+   * full month. The saved records are left alone — this only overrides them for
+   * the run being reviewed, and finalizing is what writes the new counts.
+   */
+  const resetDays = useCallback(
+    () =>
+      setDays(
+        Object.fromEntries(rows.map((r) => [r.employeeId, String(r.daysInMonth)])),
+      ),
+    [rows],
+  );
+
+  /** True while anyone is paid for less than the full month — the only time a reset does anything. */
+  const hasReducedDays = useMemo(
+    () => rows.some((r) => r.daysPayable < r.daysInMonth),
+    [rows],
+  );
 
   const request = useMemo(
     () => ({
@@ -158,6 +203,7 @@ export function usePayRun() {
     daysDraft: days,
     setDaysFor,
     resetDays,
+    hasReducedDays,
     request,
     loading,
     error,
