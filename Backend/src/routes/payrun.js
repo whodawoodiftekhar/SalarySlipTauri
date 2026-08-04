@@ -17,7 +17,7 @@ import { deliverPayslip } from "../lib/payslipMailer.js";
 import { Employee } from "../models/Employee.js";
 import { PayPeriodDays, upsertDayCount } from "../models/PayPeriodDays.js";
 import { Payslip } from "../models/Payslip.js";
-import { SalaryComponent } from "../models/SalaryComponent.js";
+import { CATALOG_SORT, SalaryComponent } from "../models/SalaryComponent.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
 import { getSettings } from "../models/Settings.js";
 
@@ -72,7 +72,7 @@ async function buildRun(body = {}) {
   const [employees, structures, catalog, existing, dayCounts] = await Promise.all([
     Employee.find(filter).lean(),
     SalaryStructure.find(filter.id ? { employeeId: filter.id } : {}).lean(),
-    SalaryComponent.find().lean(),
+    SalaryComponent.find().sort(CATALOG_SORT).lean(),
     period ? Payslip.find({ period }).lean() : Promise.resolve([]),
     period ? PayPeriodDays.find({ period }).lean() : Promise.resolve([]),
   ]);

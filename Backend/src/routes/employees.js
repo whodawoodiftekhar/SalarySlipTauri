@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Employee } from "../models/Employee.js";
 import { Payslip } from "../models/Payslip.js";
-import { SalaryComponent } from "../models/SalaryComponent.js";
+import { CATALOG_SORT, SalaryComponent } from "../models/SalaryComponent.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
 import { makeStructure, num } from "../lib/calc.js";
 
@@ -89,7 +89,7 @@ router.post("/", async (req, res) => {
 
     const employee = await Employee.create(req.body);
 
-    const dbCatalog = await SalaryComponent.find().lean();
+    const dbCatalog = await SalaryComponent.find().sort(CATALOG_SORT).lean();
 
     await SalaryStructure.findOneAndUpdate(
       { employeeId: employee.id },
@@ -148,7 +148,7 @@ router.get("/:id/salary-structure", async (req, res) => {
 
   let structure = await SalaryStructure.findOne({ employeeId: employee.id });
   if (!structure) {
-    const dbCatalog = await SalaryComponent.find().lean();
+    const dbCatalog = await SalaryComponent.find().sort(CATALOG_SORT).lean();
     structure = await SalaryStructure.create({
       employeeId: employee.id,
       components: makeStructure(employee, dbCatalog),

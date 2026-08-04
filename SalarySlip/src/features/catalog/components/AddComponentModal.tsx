@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
+import { CALC_OPTIONS } from "@/shared/lib/calc";
 import type { CatalogItem, ComponentGroup } from "@/shared/types";
 
 export function AddComponentModal({
@@ -14,7 +15,7 @@ export function AddComponentModal({
   onCancel: () => void;
   onSave: (item: CatalogItem) => void;
 }) {
-  const [f, setF] = useState<CatalogItem>({
+  const [f, setF] = useState({
     code: "",
     name: "",
     group: "earning",
@@ -23,12 +24,14 @@ export function AddComponentModal({
   });
 
   const set =
-    (k: keyof CatalogItem) =>
+    (k: keyof typeof f) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setF({ ...f, [k]: e.target.value });
 
   const valid = Boolean(f.code.trim() && f.name.trim());
 
+  // no display order here on purpose — the API numbers a new component last,
+  // so adding one never reshuffles the salary form. Renumber it from Edit.
   const save = () => {
     onSave({
       code: f.code.trim().toUpperCase(),
@@ -83,10 +86,11 @@ export function AddComponentModal({
 
             <Field label="Calculation Method">
               <select className={FIELD_INPUT} value={f.calc} onChange={set("calc")}>
-                <option value="Flat ₹">Flat ₹</option>
-                <option value="% of Basic">% of Basic</option>
-                <option value="% of Gross">% of Gross</option>
-                <option value="PF (statutory)">PF (statutory)</option>
+                {CALC_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
@@ -99,6 +103,10 @@ export function AddComponentModal({
               <option value="—">— (Not applicable)</option>
             </select>
           </Field>
+          <p className="-mt-1.5 text-[11.5px] leading-[1.45] text-mist">
+            It goes last on the employee salary form. Change its position from
+            Edit once it exists.
+          </p>
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-line pt-4">

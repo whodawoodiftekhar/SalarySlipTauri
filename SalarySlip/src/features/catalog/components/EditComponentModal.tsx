@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button, IconButton } from "@/shared/components/ui/Button";
 import { Field, FIELD_INPUT } from "@/shared/components/ui/Field";
 import { Overlay } from "@/shared/components/ui/Overlay";
+import { CALC_OPTIONS } from "@/shared/lib/calc";
 import type { CatalogItem } from "@/shared/types";
 
 export function EditComponentModal({
@@ -21,6 +22,7 @@ export function EditComponentModal({
     group: item.group ?? ("earning" as CatalogItem["group"]),
     calc: item.calc ?? "Flat ₹",
     taxable: item.taxable ?? "Yes",
+    order: item.order ? String(item.order) : "",
   });
 
   const set =
@@ -36,6 +38,7 @@ export function EditComponentModal({
       group: f.group as CatalogItem["group"],
       calc: f.calc.trim(),
       taxable: f.taxable,
+      ...(f.order.trim() ? { order: Number(f.order) } : {}),
     });
   };
 
@@ -75,36 +78,61 @@ export function EditComponentModal({
             />
           </Field>
 
-          <Field label="Group">
-            <select
-              className={FIELD_INPUT}
-              value={f.group}
-              onChange={set("group")}
-            >
-              <option value="earning">Earning</option>
-              <option value="deduction">Deduction</option>
-            </select>
-          </Field>
-          <Field label="Calculation Method *">
-            <input
-              className={FIELD_INPUT}
-              value={f.calc}
-              onChange={set("calc")}
-              placeholder="e.g. Flat ₹, % of Basic, % of Gross"
-            />
-          </Field>
-          <Field label="Taxable">
-            <select
-              className={FIELD_INPUT}
-              value={f.taxable}
-              onChange={set("taxable")}
-            >
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-              <option value="Partly">Partly</option>
-              <option value="—">— (Not applicable)</option>
-            </select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Group">
+              <select
+                className={FIELD_INPUT}
+                value={f.group}
+                onChange={set("group")}
+              >
+                <option value="earning">Earning</option>
+                <option value="deduction">Deduction</option>
+              </select>
+            </Field>
+
+            <Field label="Display order">
+              <input
+                className={FIELD_INPUT}
+                type="number"
+                min={1}
+                value={f.order}
+                onChange={set("order")}
+                placeholder="e.g. 1"
+              />
+            </Field>
+          </div>
+          <p className="-mt-1.5 text-[11.5px] leading-[1.45] text-mist">
+            Position on the employee salary form — 1 is the first field, 2 sits
+            beside it, 3 starts the next row.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Calculation Method *">
+              <select className={FIELD_INPUT} value={f.calc} onChange={set("calc")}>
+                {/* a method typed in before this was a list stays selectable */}
+                {!CALC_OPTIONS.includes(f.calc) && (
+                  <option value={f.calc}>{f.calc}</option>
+                )}
+                {CALC_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Taxable">
+              <select
+                className={FIELD_INPUT}
+                value={f.taxable}
+                onChange={set("taxable")}
+              >
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+                <option value="Partly">Partly</option>
+                <option value="—">— (Not applicable)</option>
+              </select>
+            </Field>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2.5 border-t border-line pt-3.5">

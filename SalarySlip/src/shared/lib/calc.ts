@@ -16,3 +16,10 @@ export const CALC_LABELS: Record<CalcMethod, string> = {
   pct_gross: "% of Gross",
   statutory_pf: "PF (statutory)",
 };
+
+/**
+ * The calculation methods a catalog component may be given, as the strings the
+ * engine parses back. Both component dialogs offer exactly this list, so a
+ * component cannot be saved with a method the payroll engine will not read.
+ */
+export const CALC_OPTIONS = Object.values(CALC_LABELS);

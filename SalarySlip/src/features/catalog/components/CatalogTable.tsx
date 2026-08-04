@@ -21,6 +21,9 @@ export function CatalogTable({
     <table className="w-full border-collapse max-mob:min-w-[560px]">
       <thead>
         <tr>
+          <th className={`${TH} w-10`} title="Display order">
+            #
+          </th>
           <th className={TH}>Code</th>
           <th className={TH}>Name</th>
           <th className={TH}>Group</th>
@@ -32,6 +35,9 @@ export function CatalogTable({
       <tbody className="[&>tr:last-child>td]:border-b-0">
         {items.map((c) => (
           <tr key={c.code}>
+            <td className={`${TD} font-mono tabular-nums font-semibold text-mist`}>
+              {c.order || "—"}
+            </td>
             <td className={`${TD} font-mono tabular-nums`}>{c.code}</td>
             <td className={TD}>
               <b>{c.name}</b>

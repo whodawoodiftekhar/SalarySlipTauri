@@ -21,12 +21,13 @@ const EMPLOYEES = [
   { id: "C11025", name: "Arjun Nair", email: "arjun.nair@comm-it.com", dept: "IT", role: "QA Engineer", basic: 48000, special: 18000, tds: 3800, onsite: 0 },
 ];
 
+/** Listed in the order HR sees them — the position becomes each one's `order`. */
 const CATALOG = [
   { code: "BASIC", name: "Basic Salary", group: "earning", calc: "Flat ₹", taxable: "Yes" },
-  { code: "HRA", name: "HRA", group: "earning", calc: "% of Basic", taxable: "Partly" },
-  { code: "SPECIAL", name: "Special Allowance", group: "earning", calc: "Flat ₹", taxable: "Yes" },
-  { code: "ONSITE", name: "Onsite Incentive", group: "earning", calc: "Flat ₹", taxable: "Yes" },
   { code: "MEDICAL", name: "Medical Reimbursement", group: "earning", calc: "Flat ₹", taxable: "No" },
+  { code: "HRA", name: "HRA", group: "earning", calc: "% of Basic", taxable: "Partly" },
+  { code: "ONSITE", name: "Onsite Incentive", group: "earning", calc: "Flat ₹", taxable: "Yes" },
+  { code: "SPECIAL", name: "Special Allowance", group: "earning", calc: "Flat ₹", taxable: "Yes" },
   { code: "PF", name: "Provident Fund", group: "deduction", calc: "PF (statutory)", taxable: "—" },
   { code: "PT", name: "Professional Tax", group: "deduction", calc: "Flat ₹", taxable: "—" },
   { code: "TDS", name: "TDS", group: "deduction", calc: "Flat ₹", taxable: "—" },
@@ -46,7 +47,9 @@ await Employee.insertMany(EMPLOYEES);
 await SalaryStructure.insertMany(
   EMPLOYEES.map((e) => ({ employeeId: e.id, components: makeStructure(e) })),
 );
-await SalaryComponent.insertMany(CATALOG);
+await SalaryComponent.insertMany(
+  CATALOG.map((c, i) => ({ ...c, order: i + 1 })),
+);
 
 console.log(
   `Seeded ${EMPLOYEES.length} employees, ${CATALOG.length} catalog components.`,
