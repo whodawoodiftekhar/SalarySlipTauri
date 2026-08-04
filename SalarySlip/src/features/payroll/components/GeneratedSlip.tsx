@@ -39,6 +39,7 @@ export function GeneratedSlip({
   dim,
   dpay,
   period,
+  payslipId,
   onClose,
 }: {
   emp: Employee;
@@ -46,6 +47,8 @@ export function GeneratedSlip({
   dim: number;
   dpay: number;
   period: string;
+  /** the finalized slip this view is showing — lets the mailer send it */
+  payslipId?: string;
   onClose: () => void;
 }) {
   const { company, slipDefaults } = useSettings();
@@ -74,6 +77,7 @@ export function GeneratedSlip({
           emp={emp}
           res={res}
           period={period}
+          payslipId={payslipId}
           onClose={() => setShowEmailModal(false)}
         />
       )}
@@ -217,6 +221,7 @@ export function GeneratedSlip({
           emp={emp}
           res={res}
           period={period}
+          payslipId={payslipId}
           onClose={() => setShowEmailModal(false)}
         />
       )}

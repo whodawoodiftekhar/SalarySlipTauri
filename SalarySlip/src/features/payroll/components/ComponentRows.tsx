@@ -1,6 +1,6 @@
 import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { CALC_LABELS } from "@/shared/lib/calc";
+import { CALC_LABELS, dayRates } from "@/shared/lib/calc";
 import { inr } from "@/shared/lib/format";
 import type { CalcMethod, SalaryComponent } from "@/shared/types";
 
@@ -85,12 +85,20 @@ export function ComponentRows({
           />
           <label
             className="flex items-center gap-1 whitespace-nowrap text-[10px] text-ash cursor-pointer select-none"
-            title="Reduce with loss of pay"
+            title={
+              dayRates(c)
+                ? "Reduced when fewer days are payable — untick to pay this line whole"
+                : "Paid whole however few days are payable — tick to day-rate it"
+            }
           >
             <input
               type="checkbox"
-              checked={!!c.prorate}
-              onChange={(e) => update(c.id, { prorate: e.target.checked })}
+              checked={dayRates(c)}
+              // one checkbox, two stored flags: `fixed` opts an earning out,
+              // `prorate` opts a deduction in (see dayRates in the engine)
+              onChange={(e) =>
+                update(c.id, { prorate: e.target.checked, fixed: !e.target.checked })
+              }
             />
             LOP
           </label>

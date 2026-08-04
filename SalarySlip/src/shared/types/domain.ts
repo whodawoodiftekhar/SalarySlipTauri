@@ -15,7 +15,10 @@ export interface SalaryComponent {
   calc: CalcMethod;
   /** kept loose because the editor binds it straight to an <input> */
   value: number | string;
+  /** force-day-rate a deduction that would otherwise be paid whole */
   prorate: boolean;
+  /** pay this line whole however few days are payable */
+  fixed?: boolean;
   isBasic?: boolean;
 }
 
@@ -71,6 +74,12 @@ export interface CatalogItem {
   group: ComponentGroup;
   calc: string;
   taxable: string;
+  /**
+   * Display position HR sets on the catalog screen. It orders the salary fields
+   * on the employee forms and the structure lines behind the payslip, so #1 is
+   * the first field, #2 the one beside it, #3 the next row down.
+   */
+  order?: number;
 }
 
 export interface CompanyProfile {

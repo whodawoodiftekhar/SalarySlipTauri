@@ -28,6 +28,7 @@ import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import catalogRoutes from "./routes/catalog.js";
 import employeeRoutes from "./routes/employees.js";
 import payrollRoutes from "./routes/payroll.js";
+import payrunRoutes from "./routes/payrun.js";
 import settingsRoutes from "./routes/settings.js";
 
 const PORT = process.env.PORT ?? 5000;
@@ -118,6 +119,8 @@ const checkDbConnection = (req, res, next) => {
 app.use("/api/settings", checkDbConnection, settingsRoutes);
 app.use("/api/employees", checkDbConnection, employeeRoutes);
 app.use("/api/salary-components", checkDbConnection, catalogRoutes);
+// mounted before /api/payroll so the more specific prefix wins
+app.use("/api/payroll/run", checkDbConnection, payrunRoutes);
 app.use("/api/payroll", checkDbConnection, payrollRoutes);
 
 app.use(notFound);

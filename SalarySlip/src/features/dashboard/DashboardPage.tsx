@@ -16,7 +16,7 @@ import { StatRow } from "./components/StatRow";
 
 export default function DashboardPage() {
   const { roster, loading, error, refetch } = useEmployees();
-  const { company, currentUser } = useSettings();
+  const { company, currentUser, payPeriod } = useSettings();
   const navigate = useNavigate();
   const [startingBackend, setStartingBackend] = useState(false);
   const [backendStatusMsg, setBackendStatusMsg] = useState<string | null>(null);
@@ -126,6 +126,14 @@ export default function DashboardPage() {
               onClick={() => navigate("/employees")}
             >
               <Users size={15} /> Roster ({roster.length})
+            </Button>
+            <Button
+              variant="overlayGhost"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+              onClick={() => navigate("/pay-run")}
+              title={`Run payroll for ${payPeriod}`}
+            >
+              <Play size={15} /> Run {payPeriod}
             </Button>
             <Button
               className="bg-accent text-white hover:bg-accent/90"

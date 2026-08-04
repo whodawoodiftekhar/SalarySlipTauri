@@ -53,7 +53,7 @@ export function Sidebar() {
 
       {/* Navigation links */}
       <nav className="flex flex-1 flex-col gap-[2px] max-mob:flex-row max-mob:gap-[4px] max-mob:overflow-x-auto">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.hidden).map((n) => (
           <NavLink
             key={n.id}
             to={n.path}

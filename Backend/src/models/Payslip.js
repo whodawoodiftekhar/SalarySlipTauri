@@ -11,6 +11,9 @@ const payslipSchema = new mongoose.Schema(
     components: { type: [componentSchema], default: [] },
     /** computed totals, stored so a reprint never re-derives differently */
     result: { type: mongoose.Schema.Types.Mixed, required: true },
+    /** last successful delivery, so history can show what was already sent */
+    emailedAt: { type: Date, default: null },
+    emailedTo: { type: String, default: "" },
   },
   {
     timestamps: true,
