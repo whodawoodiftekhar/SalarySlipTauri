@@ -9,6 +9,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // the payroll engine the Express API also imports — one implementation
+      '@engine': fileURLToPath(new URL('../shared/payroll-engine', import.meta.url)),
+    },
+  },
+  server: {
+    fs: {
+      // shared/ sits above this project root, so dev must be allowed to serve it
+      allow: ['..'],
     },
   },
 })

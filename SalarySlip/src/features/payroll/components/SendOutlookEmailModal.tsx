@@ -5,12 +5,24 @@ import { Button } from "@/shared/components/ui/Button";
 import { inr } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
 import { useSettings } from "@/features/settings/hooks/useSettings";
+// imported from the file, not the feature index, to avoid a circular import
+import { payslipService } from "@/features/payslips/services/payslipService";
 import { env } from "@/config/env";
 
 interface SendOutlookEmailModalProps {
   emp: Employee;
   res: PayrollResult;
   period: string;
+  /** id of the finalized payslip, when the caller already has one */
+  payslipId?: string;
+  /**
+   * Finalizes the run and resolves with the payslip id.
+   *
+   * The preview offers "Send via Outlook" before anything is finalized, and a
+   * payslip cannot be mailed until it exists in history — so the send finalizes
+   * first, exactly as the Generate button would.
+   */
+  ensurePayslip?: () => Promise<string>;
   onClose: () => void;
 }
 
@@ -18,6 +30,8 @@ export function SendOutlookEmailModal({
   emp,
   res,
   period,
+  payslipId,
+  ensurePayslip,
   onClose,
 }: SendOutlookEmailModalProps) {
   const { company, slipDefaults } = useSettings();
@@ -149,70 +163,54 @@ ${companyLegal}
     }
   };
 
+  /**
+   * Sends the payslip straight out through Outlook — the same call the Pay Run
+   * and Payslips screens make, so all three compose and deliver identically.
+   *
+   * No compose window opens: the server attaches the PDF (kept in
+   * Downloads\SalarySlip Payslips\<Period>\) and hands the mail to Outlook. If
+   * that cannot go through, the server opens a draft instead so the payslip is
+   * never silently lost.
+   */
   const handleDirectSend = async () => {
     setSendError(null);
     setSendSuccess(null);
     setSending(true);
 
     try {
-      // The backend generates the PDF, saves it to Downloads, and drives Outlook
-      // via COM so the attachment lands on the draft automatically.
-      const response = await fetch(`${env.apiUrl}/payroll/launch-outlook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payslipPayload(),
-          employeeEmail: recipientEmail,
-          subject,
-          // New Outlook (olk.exe) has no COM server, so the backend attaches the
-          // PDF by pasting it into the compose window.
-          mode: "new",
-        }),
-      });
-
-      if (response.ok) {
-        const data = (await response.json()) as {
-          attached?: boolean;
-          verified?: boolean;
-          message?: string;
-          fileName?: string;
-        };
-
-        if (data.attached && data.verified) {
-          // Classic Outlook COM — attachment confirmed by Outlook's own object model.
-          setSendSuccess(
-            data.message || `Outlook draft opened with ${attachmentFileName} attached.`,
-          );
-        } else if (data.attached) {
-          // New Outlook paste — the keystroke was delivered but there's no API to
-          // confirm it landed, so ask the user to glance at the draft.
-          setSendSuccess(
-            data.message ||
-              `New Outlook draft opened and ${attachmentFileName} was pasted — please confirm it appears before sending.`,
-          );
-        } else {
-          // Composer opened but the PDF couldn't be pasted automatically;
-          // the PDF is already in Downloads — not a failure, just a to-do.
-          setSendError(
-            data.message ||
-              `Outlook composer opened. Drag ${attachmentFileName} from Downloads to attach it.`,
-          );
-        }
+      const id = payslipId ?? (await ensurePayslip?.());
+      if (!id) {
+        setSendError(
+          "This payslip has not been finalized yet, so there is nothing to send. Use “Generate & finalize payslip” first.",
+        );
         return;
       }
 
-      const message = await readErrorMessage(response, "Could not open Outlook");
-      console.error("[Launch Outlook] server error:", message);
-      setSendError(message);
+      const outcome = await payslipService.email(id, {
+        to: recipientEmail,
+        emailBody: emailBodyText,
+        fallbackToDraft: true,
+      });
+
+      const where = outcome.savedTo ? ` PDF saved to ${outcome.savedTo}.` : "";
+
+      if (outcome.success) {
+        setSendSuccess(`${outcome.message}${where}`);
+      } else if (outcome.draftOpened) {
+        // couldn't send, but the mail is on screen ready to go
+        setSendSuccess(`${outcome.message}${where}`);
+      } else {
+        setSendError(`${outcome.message}${where}`);
+      }
     } catch (err) {
-      console.error("[Launch Outlook Error]:", err);
+      console.error("[Send Payslip Error]:", err);
       // Backend unreachable — fall back to the OS mail handler and a browser
       // download so the user can still send the payslip manually.
       window.location.href = mailtoUrl;
       const downloaded = await handleDownloadAttachment();
       setSendError(
         downloaded
-          ? "Could not auto-attach the PDF. It was downloaded — please attach it manually."
+          ? "Could not reach the backend, so the PDF was downloaded — please attach it manually."
           : `Could not reach the backend at ${env.apiUrl}. Make sure it is running.`,
       );
     } finally {
@@ -334,7 +332,7 @@ ${companyLegal}
             className="w-full justify-center bg-[#0078D4] hover:bg-[#005A9E] text-white py-3 text-[13.5px] font-bold shadow-md shadow-[#0078D4]/25 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Send size={16} />{" "}
-            {sending ? "Opening Outlook…" : "Send via Outlook & Download PDF"}
+            {sending ? "Sending…" : "Send via Outlook"}
           </Button>
         </div>
       </div>

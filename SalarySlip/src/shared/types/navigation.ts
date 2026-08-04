@@ -5,4 +5,6 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   path: string;
+  /** reachable by URL and titled like any page, but kept out of the sidebar */
+  hidden?: boolean;
 }

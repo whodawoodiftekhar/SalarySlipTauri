@@ -6,15 +6,25 @@ import { num } from "@/shared/lib/format";
 import type { ComponentGroup, Employee, SalaryComponent } from "@/shared/types";
 import { payrollService } from "../services/payrollService";
 
+interface DayDraft {
+  period: string;
+  dim: string;
+  dpay: string;
+}
+
 /**
- * Loads an employee's stored salary structure, then owns the editable draft of
- * it plus the day counts.
+ * Loads an employee's stored salary structure and the day counts saved for the
+ * selected period, then owns the editable draft of both.
  *
  * Totals are computed locally as HR types — a round trip per keystroke would
  * be unusable — and recomputed server-side on finalize, which is what gets
  * saved. `compute` is deliberately identical on both sides.
+ *
+ * The day counts are per period, not per employee: they used to be plain local
+ * state, so leaving the screen reset them to the company standard and the bulk
+ * pay run had no idea anyone was on LOP.
  */
-export function usePayrollRun(employee: Employee) {
+export function usePayrollRun(employee: Employee, period: string) {
   const { standardDays } = useSettings();
 
   const fetcher = useCallback(
@@ -23,13 +33,55 @@ export function usePayrollRun(employee: Employee) {
   );
   const { data, loading, error, refetch } = useAsync(fetcher);
 
-  const [draft, setDraft] = useState<SalaryComponent[] | null>(null);
-  const [dim, setDim] = useState(String(standardDays));
-  const [dpay, setDpay] = useState(String(standardDays));
+  const daysFetcher = useCallback(
+    () => payrollService.getDays(employee.id, period),
+    [employee.id, period],
+  );
+  const { data: savedDays } = useAsync(daysFetcher);
 
+  const [draft, setDraft] = useState<SalaryComponent[] | null>(null);
+  const [dayDraft, setDayDraft] = useState<DayDraft | null>(null);
+  /** Day counts written during this session — authoritative over a refetch. */
+  const [dayBaseline, setDayBaseline] = useState<DayDraft | null>(null);
+
+  const baseline = useMemo<{ dim: string; dpay: string }>(() => {
+    if (dayBaseline?.period === period) return dayBaseline;
+    return {
+      dim: String(savedDays?.daysInMonth ?? standardDays),
+      dpay: String(savedDays?.daysPayable ?? standardDays),
+    };
+  }, [dayBaseline, period, savedDays, standardDays]);
+
+  // a draft belongs to the period it was typed against, so switching period
+  // falls back to that period's stored counts instead of carrying LOP across
+  const activeDays = dayDraft?.period === period ? dayDraft : null;
+  const dim = activeDays?.dim ?? baseline.dim;
+  const dpay = activeDays?.dpay ?? baseline.dpay;
+
+  const daysDirty =
+    activeDays != null &&
+    (activeDays.dim !== baseline.dim || activeDays.dpay !== baseline.dpay);
+
+  const setDim = useCallback(
+    (value: string) => setDayDraft({ period, dim: value, dpay }),
+    [period, dpay],
+  );
+
+  const setDpay = useCallback(
+    (value: string) => setDayDraft({ period, dim, dpay: value }),
+    [period, dim],
+  );
+
+  /**
+   * The stored structure as-is. `prorate` must survive the round trip: it used
+   * to be forced back to false here, so a ticked LOP box silently un-ticked
+   * itself after saving — and worse, a finalize after reload computed a full
+   * month even though HR had saved the line as day-rated. Legacy rows without
+   * the field coerce to false.
+   */
   const initialComps = useMemo(() => {
     if (!data) return [];
-    return data.map((c) => ({ ...c, prorate: false }));
+    return data.map((c) => ({ ...c, prorate: Boolean(c.prorate) }));
   }, [data]);
 
   const comps = useMemo(() => draft ?? initialComps, [draft, initialComps]);
@@ -87,18 +139,34 @@ export function usePayrollRun(employee: Employee) {
 
   const [savingStructure, setSavingStructure] = useState(false);
 
+  /**
+   * Persists whichever of the two actually changed.
+   *
+   * The day counts are not refetched afterwards — the values just written become
+   * the new baseline, so the fields cannot flicker back to the standard days
+   * while the request is in flight.
+   */
   const saveStructure = useCallback(async () => {
     if (!comps) return;
     setSavingStructure(true);
     try {
-      const updated = await payrollService.saveStructure(employee.id, comps);
-      setDraft(null);
-      await refetch();
+      let updated;
+      if (draft !== null) {
+        updated = await payrollService.saveStructure(employee.id, comps);
+        setDraft(null);
+        await refetch();
+      }
+
+      if (daysDirty) {
+        await payrollService.saveDays(employee.id, period, num(dim), num(dpay));
+        setDayBaseline({ period, dim, dpay });
+      }
+
       return updated;
     } finally {
       setSavingStructure(false);
     }
-  }, [comps, employee.id, refetch]);
+  }, [comps, daysDirty, dim, dpay, draft, employee.id, period, refetch]);
 
   return {
     comps,
@@ -117,6 +185,6 @@ export function usePayrollRun(employee: Employee) {
     amountOf,
     saveStructure,
     savingStructure,
-    isDirty: draft !== null,
+    isDirty: draft !== null || daysDirty,
   };
 }

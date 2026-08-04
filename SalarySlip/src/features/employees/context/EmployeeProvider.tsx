@@ -1,9 +1,33 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useRoster } from "@/features/payroll/hooks/useRoster";
+import { compute, makeStructure } from "@/shared/lib/calc";
 import type { Employee, RosterEntry } from "@/shared/types";
 import { employeeService } from "../services/employeeService";
 import type { NewEmployeeDto, UpdateEmployeeDto } from "../types";
 import { EmployeeContext, type EmployeeContextValue } from "./employeeContext";
+
+/** The month the roster column is headed with — matches GET /payroll/roster. */
+const STANDARD_DAYS = 30;
+
+/**
+ * Gives a locally echoed employee the payroll figures the table needs.
+ *
+ * A create or update hands back a bare Employee with no totals on it, so the
+ * server's costing for that person is kept where there is one — only the
+ * profile fields are refreshed over it. An employee the roster has not returned
+ * yet is costed here with the same engine the API uses, rather than guessed at.
+ */
+const costed = (employee: Employee, roster: RosterEntry[]): RosterEntry => {
+  if ("net" in employee) return employee as RosterEntry;
+
+  const server = roster.find((r) => r.id === employee.id);
+  if (server) return { ...server, ...employee };
+
+  return {
+    ...employee,
+    ...compute(makeStructure({ ...employee }), STANDARD_DAYS, STANDARD_DAYS),
+  };
+};
 
 /**
  * Single source of employee data for the whole app.
@@ -50,16 +74,7 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
     const seen = new Set<string>();
     for (const e of created) {
       if (e && e.id && !removed.includes(e.id) && !seen.has(e.id)) {
-        const entry: RosterEntry = "net" in e ? (e as RosterEntry) : {
-          ...e,
-          earnings: [],
-          deductions: [],
-          gross: e.basic || 0,
-          totalDeductions: 0,
-          net: e.basic || 0,
-          factor: 1,
-        };
-        list.push(entry);
+        list.push(costed(e, safeRoster));
         seen.add(e.id);
       }
     }

@@ -3,9 +3,51 @@ import { Employee } from "../models/Employee.js";
 import { Payslip } from "../models/Payslip.js";
 import { SalaryComponent } from "../models/SalaryComponent.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
-import { makeStructure } from "../lib/calc.js";
+import { makeStructure, num } from "../lib/calc.js";
 
 const router = Router();
+
+/** Which employee field feeds a given structure line. */
+const fieldFor = (component) => {
+  if (component.isBasic || component.id === "basic") return "basic";
+  if (component.id === "project") return "projectAllowance";
+  return component.id;
+};
+
+/**
+ * Pushes edited profile amounts into the employee's saved structure.
+ *
+ * Payroll is always costed from the structure, so without this a raise typed
+ * into the profile never reaches the payslip — the screen keeps showing the
+ * amount the structure was created with.
+ *
+ * Only lines whose field actually changed in this edit are touched, so a
+ * structure HR tuned on the payroll screen is not silently reset by an
+ * unrelated edit to, say, a bank account. Custom lines, prorate flags and calc
+ * methods are never rewritten.
+ */
+const syncStructureToProfile = async (employeeId, patch, before) => {
+  const structure = await SalaryStructure.findOne({ employeeId });
+  if (!structure || !Array.isArray(structure.components)) return;
+
+  let changed = false;
+  for (const component of structure.components) {
+    // statutory PF derives its amount from Basic; its stored value is never read
+    if (component.calc === "statutory_pf") continue;
+
+    const field = fieldFor(component);
+    if (!(field in patch)) continue;
+    if (num(patch[field]) === num(before[field])) continue;
+
+    component.value = num(patch[field]);
+    changed = true;
+  }
+
+  if (!changed) return;
+  // `value` is Mixed, so mongoose needs telling the subdocuments moved
+  structure.markModified("components");
+  await structure.save();
+};
 
 /** GET /api/employees — full roster */
 router.get("/", async (req, res) => {
@@ -67,8 +109,12 @@ router.post("/", async (req, res) => {
   }
 });
 
-/** PUT /api/employees/:id — update the employee record */
+/** PUT /api/employees/:id — update the employee record and its structure */
 router.put("/:id", async (req, res) => {
+  // read first: the sync below only acts on amounts this edit actually changed
+  const before = await Employee.findOne({ id: req.params.id }).lean();
+  if (!before) return res.status(404).json({ message: "Employee not found" });
+
   const employee = await Employee.findOneAndUpdate(
     { id: req.params.id },
     req.body,
@@ -76,6 +122,8 @@ router.put("/:id", async (req, res) => {
   );
 
   if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+  await syncStructureToProfile(employee.id, req.body, before);
   res.json(employee);
 });
 

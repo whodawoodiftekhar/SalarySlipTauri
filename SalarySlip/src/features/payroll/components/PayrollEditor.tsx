@@ -6,6 +6,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader } from "@/shared/components/ui/Card";
 import { num } from "@/shared/lib/format";
+import { PERIOD_OPTIONS } from "@/shared/lib/periods";
 import type { Employee } from "@/shared/types";
 import { usePayrollRun } from "../hooks/usePayrollRun";
 import { payrollService } from "../services/payrollService";
@@ -20,22 +21,7 @@ import { SlipPreview } from "./SlipPreview";
 const DAY_INPUT =
   "w-[92px] rounded-lg border border-line px-[9px] py-[7px] tabular-nums";
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const YEARS = [2025, 2026, 2027];
-const PERIOD_OPTIONS = YEARS.flatMap((y) => MONTHS.map((m) => `${m} ${y}`));
+// period list lives in shared/lib/periods so the pay run offers the same months
 
 export function PayrollEditor({
   emp,
@@ -66,9 +52,10 @@ export function PayrollEditor({
     saveStructure,
     savingStructure,
     isDirty,
-  } = usePayrollRun(emp);
+  } = usePayrollRun(emp, selectedPeriod);
 
   const [gen, setGen] = useState(false);
+  const [payslipId, setPayslipId] = useState<string | undefined>();
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeError, setFinalizeError] = useState<Error | null>(null);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -86,20 +73,33 @@ export function PayrollEditor({
     navigate("/employees");
   };
 
+  /**
+   * Saves any pending edits and finalizes the slip, resolving with its id.
+   *
+   * Shared by the Generate button and the Outlook mailer: a payslip has to exist
+   * in history before it can be emailed, and re-finalizing the same
+   * employee+period overwrites the same document, so calling this twice is safe.
+   */
+  const finalizeRun = async (): Promise<string> => {
+    if (isDirty) {
+      await saveStructure();
+    }
+    const slip = await payrollService.finalize({
+      employeeId: emp.id,
+      period: selectedPeriod,
+      daysInMonth: num(dim),
+      daysPayable: num(dpay),
+      components: comps,
+    });
+    setPayslipId(slip.id);
+    return slip.id;
+  };
+
   const finalize = async () => {
     setFinalizing(true);
     setFinalizeError(null);
     try {
-      if (isDirty) {
-        await saveStructure();
-      }
-      await payrollService.finalize({
-        employeeId: emp.id,
-        period: selectedPeriod,
-        daysInMonth: num(dim),
-        daysPayable: num(dpay),
-        components: comps,
-      });
+      await finalizeRun();
       setGen(true);
     } catch (e) {
       setFinalizeError(e instanceof Error ? e : new Error(String(e)));
@@ -159,7 +159,11 @@ export function PayrollEditor({
                   size="sm"
                   onClick={handleSaveStructure}
                   disabled={savingStructure || !isDirty}
-                  title={isDirty ? "Save structure edits to database" : "Structure saved in database"}
+                  title={
+                    isDirty
+                      ? "Save structure edits and day counts to database"
+                      : "Structure and day counts saved in database"
+                  }
                   className="h-8 text-[12px] gap-1.5 px-3"
                 >
                   {savingStructure ? (
@@ -250,6 +254,7 @@ export function PayrollEditor({
             period={selectedPeriod}
             finalizing={finalizing}
             onGenerate={finalize}
+            ensurePayslip={finalizeRun}
           />
           {finalizeError && (
             <ErrorState
@@ -268,6 +273,7 @@ export function PayrollEditor({
           dim={num(dim)}
           dpay={num(dpay)}
           period={selectedPeriod}
+          payslipId={payslipId}
           onClose={() => setGen(false)}
         />
       )}

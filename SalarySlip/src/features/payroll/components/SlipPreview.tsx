@@ -57,6 +57,7 @@ export function SlipPreview({
   period,
   finalizing,
   onGenerate,
+  ensurePayslip,
 }: {
   emp: Employee;
   res: PayrollResult;
@@ -65,6 +66,8 @@ export function SlipPreview({
   period: string;
   finalizing: boolean;
   onGenerate: () => void;
+  /** finalizes and resolves the payslip id, so the mail can be sent from here */
+  ensurePayslip?: () => Promise<string>;
 }) {
   const { company, slipDefaults } = useSettings();
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -150,6 +153,7 @@ export function SlipPreview({
           emp={emp}
           res={res}
           period={period}
+          ensurePayslip={ensurePayslip}
           onClose={() => setShowEmailModal(false)}
         />
       )}
