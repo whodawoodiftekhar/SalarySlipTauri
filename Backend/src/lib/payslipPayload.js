@@ -231,23 +231,50 @@ export function buildPayslipEmailHtml({
 }
 
 /**
- * SMTP sender, or null when no password is configured.
+ * SMTP sender, or null when no password is configured — which is the normal case.
  *
- * The app ships without credentials and HR is expected to use the Outlook COM
- * path instead, so callers must treat null as "not an error" and report the
- * skip rather than failing the run.
+ * Credentials come from the **environment only**. There was a UI for them; it was
+ * removed because Microsoft 365 refuses basic authentication by tenant policy, so a
+ * password entered there could never authenticate and only bought a failed attempt
+ * before the Outlook fallback. Sending as a chosen mailbox is handled by Outlook
+ * instead — see `sendAs` in outlookLauncher.js.
+ *
+ * Callers must treat a null transporter as "not an error" and fall through to
+ * Outlook. `settings.currentUser.email` is a last resort for the address only; it is
+ * a label for the app's operator, not necessarily a mailbox that can authenticate.
  */
-export function createSmtpTransport(settings = {}) {
+export async function createSmtpTransport(settings = {}) {
   const user = process.env.OUTLOOK_USER || settings?.currentUser?.email || "";
   const pass = process.env.OUTLOOK_PASS || "";
-  if (!pass) return { transporter: null, user };
+  if (!user || !pass) return { transporter: null, user };
+
+  const host = process.env.OUTLOOK_SMTP_HOST || "smtp.office365.com";
+  const port = Number(process.env.OUTLOOK_SMTP_PORT || 587);
 
   const transporter = nodemailer.createTransport({
-    host: process.env.OUTLOOK_SMTP_HOST || "smtp.office365.com",
-    port: Number(process.env.OUTLOOK_SMTP_PORT || 587),
-    secure: false,
+    host,
+    port,
+    // 465 is implicit TLS; 587 and 25 open in the clear and upgrade via STARTTLS.
+    // `secure: false` means "upgrade it", not "send it unencrypted" — requireTLS
+    // makes the upgrade mandatory rather than best-effort.
+    secure: port === 465,
+    requireTLS: port !== 465,
     auth: { user, pass },
-    tls: { ciphers: "SSLv3", rejectUnauthorized: false },
+    // The previous config pinned `ciphers: "SSLv3"` and set
+    // `rejectUnauthorized: false`, which turned off certificate verification
+    // altogether — on a connection that carries a mailbox password. Office 365
+    // needs neither.
+    tls: { minVersion: "TLSv1.2" },
+    // Without these a wrong port does not fail — it hangs until the OS gives up.
+    //
+    // Note these are **per resolved address**, not per attempt: smtp.office365.com
+    // resolves to about eight IPs and nodemailer works through them, so a dead port
+    // costs eight × this value. 5s measured at 64s total with a 8s setting. A
+    // submission port that will answer answers at once, so keep it small — and see
+    // verifyWithin() in routes/mailAccount.js for the overall cap on top.
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 20_000,
   });
 
   return { transporter, user };

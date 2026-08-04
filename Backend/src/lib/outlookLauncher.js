@@ -413,6 +413,77 @@ function Invoke-ClassicOutlook() {
             $Mail = $Outlook.CreateItem(0)
             $Mail.To = $cfg.to
             $Mail.Subject = $cfg.subject
+
+            # Send as the configured mailbox rather than whichever account happens
+            # to be the profile default. Outlook stores SmtpAddress lower-cased, so
+            # the comparison has to ignore case ('v-dawood@Comm-it.in' as typed vs
+            # 'v-dawood@comm-it.in' as stored) or the match silently fails and the
+            # default account is used with nothing to show why.
+            if ($cfg.sendAs) {
+                $wanted = ([string]$cfg.sendAs).Trim()
+                $picked = $null
+                $available = @()
+                foreach ($acct in $Outlook.Session.Accounts) {
+                    $smtp = [string]$acct.SmtpAddress
+                    $available += $smtp
+                    if ($smtp -and ($smtp -ieq $wanted)) { $picked = $acct }
+                }
+                if ($picked) {
+                    # A plain "$Mail.SendUsingAccount = $picked" does NOT work here.
+                    # PowerShell's COM adapter drops the assignment silently: the
+                    # property reads back empty and the mail goes from the default
+                    # account with nothing to show why. Measured on this profile —
+                    # of plain assignment, Accounts.Item(i), ResolveAll-then-assign
+                    # and SentOnBehalfOfName, only the reflection setter sticks.
+                    [void]$Mail.GetType().InvokeMember('SendUsingAccount',
+                        [System.Reflection.BindingFlags]::SetProperty, $null, $Mail, @($picked))
+
+                    # Read it back rather than assume: better to report the default
+                    # was kept than to claim a From: that was never applied.
+                    $confirmed = ''
+                    try {
+                        if ($Mail.SendUsingAccount) { $confirmed = [string]$Mail.SendUsingAccount.SmtpAddress }
+                    } catch { }
+
+                    if ($confirmed) {
+                        [Console]::Out.WriteLine('INFO:Sending as ' + $confirmed)
+                    } else {
+                        [Console]::Out.WriteLine('INFO:SENDAS_NOT_APPLIED - Outlook kept the default account instead of ' + $wanted)
+                    }
+                } else {
+                    # The mailbox is not one of this profile's accounts, so there is no
+                    # Account object for SendUsingAccount. Exchange still allows sending
+                    # *as* another mailbox when that mailbox grants Send As (or Send on
+                    # Behalf Of) permission, which is what SentOnBehalfOfName requests.
+                    # Unlike SendUsingAccount a plain assignment does work here — it is a
+                    # string, not a COM object.
+                    #
+                    # Whether the permission exists cannot be known in advance: without
+                    # it Exchange accepts the item and bounces an NDR to the sender
+                    # afterwards. So the attempt is reported for what it is.
+                    #
+                    # Reported on INFO rather than RESULT on purpose — a second RESULT
+                    # marker would compete with COM_SENT for the same field and could
+                    # make a delivered mail look like a failure.
+                    try {
+                        $Mail.SentOnBehalfOfName = $wanted
+                        $sobo = [string]$Mail.SentOnBehalfOfName
+                        if ($sobo) {
+                            [Console]::Out.WriteLine('INFO:SENDAS_ON_BEHALF - requested ' + $sobo +
+                                ' which is not a profile account. Without Send As permission Exchange' +
+                                ' discards this silently and sends from the signed-in account instead.')
+                        } else {
+                            [Console]::Out.WriteLine('INFO:SENDAS_MISSING - on-behalf-of did not take for ' +
+                                $wanted + ' - profile has: ' + ($available -join ', '))
+                        }
+                    } catch {
+                        [Console]::Out.WriteLine('INFO:SENDAS_MISSING - ' + $wanted +
+                            ' is not a profile account and on-behalf-of failed (' +
+                            $_.Exception.Message + ') - profile has: ' + ($available -join ', '))
+                    }
+                }
+            }
+
             if ($cfg.htmlBody) {
                 $Mail.HTMLBody = $cfg.htmlBody
             } else {
@@ -641,6 +712,7 @@ export async function deliverViaOutlook({
   attachmentPath,
   mode,
   send = false,
+  sendAs = "",
 }) {
   const configPath = path.join(
     os.tmpdir(),
@@ -658,6 +730,15 @@ export async function deliverViaOutlook({
       // sending must go through COM, so never let it fall back to a draft route
       mode: send ? "classic" : OUTLOOK_MODES.has(mode) ? mode : "new",
       send: Boolean(send),
+      /**
+       * Which mailbox to send as, when the profile holds more than one.
+       *
+       * Without it Outlook uses the profile's *default* account, so who payslips
+       * appear to come from was decided outside this app and changed silently
+       * whenever someone switched their default. Switching mailboxes in the folder
+       * pane never affected it either. Empty keeps the old behaviour.
+       */
+      sendAs: String(sendAs || ""),
     }),
     "utf-8",
   );

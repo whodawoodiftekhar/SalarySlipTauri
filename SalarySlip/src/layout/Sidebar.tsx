@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { MailAccountModal } from "@/features/settings/components/MailAccountModal";
+import {
+  mailAccountService,
+  type MailAccount,
+} from "@/features/settings/services/mailAccountService";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { LOGO } from "@/shared/lib/branding";
 import { cn } from "@/shared/lib/cn";
@@ -11,6 +16,33 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const active = matchNav(pathname);
   const [collapsed, setCollapsed] = useState(false);
+  const [mailOpen, setMailOpen] = useState(false);
+  const [mail, setMail] = useState<MailAccount | null>(null);
+
+  // Read once on mount; the modal reports its own changes through onChange, so
+  // this never has to poll or be invalidated from elsewhere.
+  useEffect(() => {
+    let alive = true;
+    mailAccountService
+      .get()
+      .then((a) => alive && setMail(a))
+      .catch(() => {
+        /* the chip just falls back to the settings address */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * Prefer the mailbox payslips are actually sent from.
+   *
+   * `currentUser.email` is a static Company Setup value — it was showing
+   * payroll@comm-it.com while mail really left as v-dawood@Comm-it.in, which is
+   * exactly the sort of quiet disagreement that costs an afternoon.
+   */
+  const sendingAddress = mail?.user?.trim() || "";
+  const shownEmail = sendingAddress || currentUser.email;
 
   return (
     <aside
@@ -75,21 +107,64 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User info */}
-      <div className={cn(
-        "flex items-center border-t border-line pb-1 pt-3 max-mob:hidden",
-        collapsed ? "justify-center px-0" : "gap-[10px] px-2",
-      )}>
-        <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full bg-accent-soft text-[12px] font-bold text-accent">
+      {/* User info — also the way in to the mailbox payslips are sent from */}
+      <button
+        onClick={() => setMailOpen(true)}
+        title={
+          sendingAddress
+            ? `Payslips are sent as ${sendingAddress} through Outlook — click to change`
+            : "No sending account chosen — payslips go from whichever account is Default in Outlook. Click to choose one."
+        }
+        className={cn(
+          "group flex items-center rounded-[9px] border-none bg-transparent pb-1 pt-3 text-left transition-colors cursor-pointer hover:bg-hover max-mob:hidden",
+          "border-t border-line",
+          collapsed ? "justify-center px-0" : "gap-[10px] px-2",
+        )}
+      >
+        <span className="relative grid h-[34px] w-[34px] flex-none place-items-center rounded-full bg-accent-soft text-[12px] font-bold text-accent">
           {currentUser.initials}
+          {/* collapsed leaves only the avatar, so the dot carries the state */}
+          {sendingAddress && (
+            <span
+              className="absolute -bottom-[1px] -right-[1px] h-[10px] w-[10px] rounded-full border-2 border-white bg-earn"
+              aria-hidden
+            />
+          )}
         </span>
         {!collapsed && (
-          <div>
-            <b className="block text-[13px]">{currentUser.name}</b>
-            <small className="text-[11px] text-mist">{currentUser.email}</small>
-          </div>
+          <>
+            <div className="min-w-0 flex-1">
+              <b className="block truncate text-[13px]">{currentUser.name}</b>
+              <small
+                className={cn(
+                  "block truncate text-[11px]",
+                  sendingAddress ? "font-semibold text-earn" : "text-mist",
+                )}
+              >
+                {shownEmail}
+              </small>
+              {sendingAddress && (
+                <small className="block truncate text-[10px] uppercase tracking-[0.05em] text-mist">
+                  sending account
+                </small>
+              )}
+            </div>
+            <Mail
+              size={15}
+              className="flex-none text-mist transition-colors group-hover:text-accent"
+            />
+          </>
         )}
-      </div>
+      </button>
+
+      {mailOpen && (
+        <MailAccountModal
+          onClose={() => setMailOpen(false)}
+          onChange={setMail}
+          // already fetched for the chip above, so the dialog opens filled in
+          initialUser={sendingAddress}
+        />
+      )}
     </aside>
   );
 }

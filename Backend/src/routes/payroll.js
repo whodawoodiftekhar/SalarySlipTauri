@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 import { Employee } from "../models/Employee.js";
+import { describeMailAccount } from "../models/MailAccount.js";
 import { PayPeriodDays, upsertDayCount } from "../models/PayPeriodDays.js";
 import { Payslip } from "../models/Payslip.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
@@ -481,7 +482,7 @@ router.post("/send-email", async (req, res) => {
   }
 
   const settings = await getSettings();
-  const { transporter, user: smtpUser } = createSmtpTransport(settings);
+  const { transporter, user: smtpUser } = await createSmtpTransport(settings);
 
   console.log(
     `[Outlook Email Engine] Dispatching payslip for ${employeeName || employeeId} (${period}) to ${employeeEmail} via ${smtpUser}`
@@ -623,6 +624,7 @@ router.post("/launch-outlook", async (req, res) => {
       attachmentPath: pdfPath,
       mode,
       send: false,
+      sendAs: (await describeMailAccount()).user,
     });
     const outcome = describeOutlookResult(result, pdfFileName);
 
