@@ -1,4 +1,4 @@
-import { apiClient, downloadFile } from "@/services";
+import { apiClient } from "@/services";
 import type {
   EmailOutcome,
   PayslipExportResult,
@@ -34,13 +34,6 @@ export const payslipService = {
     return apiClient.get<YtdStatement>(
       `/payroll/ytd/${employeeId}${query({ fy: fy == null ? undefined : String(fy) })}`,
     );
-  },
-
-  /** Regenerates the PDF from the stored snapshot and saves it. */
-  async reprint(slip: Pick<PayslipRecord, "id" | "employeeName" | "period">) {
-    return downloadFile(`/payroll/payslips/${slip.id}/pdf`, {
-      fallbackName: `${slip.employeeName}_${slip.period}.pdf`.replace(/\s+/g, "_"),
-    });
   },
 
   /**

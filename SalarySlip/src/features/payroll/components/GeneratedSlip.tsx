@@ -150,8 +150,14 @@ export function GeneratedSlip({
                 v2={emp.pfAccountNo || slipDefaults.pfAccountNo}
               />
               <MetaRow
+                k1="Days in Month"
+                v1={dim}
+                k2=""
+                v2=""
+              />
+              <MetaRow
                 k1="Days Payable"
-                v1={`${dpay} / ${dim}`}
+                v1={dpay}
                 k2=""
                 v2=""
               />

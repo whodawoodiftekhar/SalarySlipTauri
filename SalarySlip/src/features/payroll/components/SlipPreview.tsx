@@ -101,7 +101,8 @@ export function SlipPreview({
         <Meta label="Bank Account" value={emp.bankAccountNo || slipDefaults.bankAccountNo} />
         <Meta label="Department" value={emp.dept} />
         <Meta label="PF Account" value={emp.pfAccountNo || slipDefaults.pfAccountNo} />
-        <Meta label="Days payable" value={`${dpay} / ${dim}`} />
+        <Meta label="Days in month" value={dim} />
+        <Meta label="Days payable" value={dpay} />
       </div>
 
       <div className="mt-[14px] grid grid-cols-2">

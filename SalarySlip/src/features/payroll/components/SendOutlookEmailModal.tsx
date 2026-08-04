@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Mail, Check, AlertCircle, Send, Copy, X } from "lucide-react";
+import {
+  Mail,
+  Check,
+  AlertCircle,
+  Send,
+  Copy,
+  X,
+  Paperclip,
+  Eye,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/shared/components/ui/Button";
 import { inr } from "@/shared/lib/format";
 import type { Employee, PayrollResult } from "@/shared/types";
@@ -40,6 +50,7 @@ export function SendOutlookEmailModal({
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
   const companyLegal = company.legalName || company.name || "COMM-IT INDIA PVT. LTD.";
   const subject = `Payslip for ${period} — ${companyLegal}`;
@@ -115,8 +126,9 @@ ${companyLegal}
   };
 
   /**
-   * Kept as the offline fallback for handleDirectSend — the attachment row that
-   * used to expose it has been removed, so nothing calls it from the UI.
+   * Offline fallback for handleDirectSend only. The attachment row offers *View*
+   * rather than a download, because the point there is to check the document
+   * before sending, not to end up with a copy in Downloads.
    */
   const handleDownloadAttachment = async (): Promise<boolean> => {
     setSendError(null);
@@ -163,6 +175,59 @@ ${companyLegal}
         `Could not reach the PDF service at ${env.apiUrl}. Make sure the backend is running.`,
       );
       return false;
+    }
+  };
+
+  /**
+   * Opens the PDF for inspection before the mail goes out.
+   *
+   * A finalized slip is read back from its stored snapshot — the very source the
+   * mailer attaches — so what is checked here is what the employee receives.
+   * Before finalizing no snapshot exists yet, so this falls back to the generator
+   * and the row says as much, rather than quietly showing a different document.
+   */
+  const handleViewAttachment = async () => {
+    setSendError(null);
+    setSendSuccess(null);
+    setViewing(true);
+
+    try {
+      const response = payslipId
+        ? await fetch(`${env.apiUrl}/payroll/payslips/${payslipId}/pdf`)
+        : await fetch(`${env.apiUrl}/payroll/generate-pdf`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payslipPayload()),
+          });
+
+      if (!response.ok) {
+        setSendError(await readErrorMessage(response, "Could not open the attachment"));
+        return;
+      }
+
+      const blob = await response.blob();
+      if (blob.size === 0) {
+        setSendError("The server returned an empty PDF.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      if (!window.open(url, "_blank")) {
+        URL.revokeObjectURL(url);
+        setSendError(
+          "Your browser blocked the preview tab — allow pop-ups for this site and try again.",
+        );
+        return;
+      }
+      // the new tab reads from this url, so it has to outlive this function
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      console.error("[Attachment preview]:", err);
+      setSendError(
+        `Could not reach the PDF service at ${env.apiUrl}. Make sure the backend is running.`,
+      );
+    } finally {
+      setViewing(false);
     }
   };
 
@@ -277,6 +342,44 @@ ${companyLegal}
             <span className="font-semibold text-slate-500">Net Pay Amount:</span>
             <span className="font-mono text-[16px] font-extrabold text-emerald-600">₹ {inr(res.net)}</span>
           </div>
+
+          {/* What will actually travel with the mail, openable before sending. */}
+          <div className="flex flex-wrap justify-between items-center gap-2 text-[13px]">
+            <span className="font-semibold text-slate-500">Attachment:</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <Paperclip size={13} className="shrink-0 text-slate-400" />
+              <span
+                className="truncate font-mono text-[12px] font-semibold text-slate-800"
+                title={attachmentFileName}
+              >
+                {attachmentFileName}
+              </span>
+              <button
+                onClick={handleViewAttachment}
+                disabled={viewing}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-[#0078D4] shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                title={
+                  payslipId
+                    ? "Open the exact PDF that will be attached"
+                    : "Preview the PDF — on send it is regenerated from the finalized slip"
+                }
+              >
+                {viewing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Eye size={12} />
+                )}
+                {viewing ? "Opening…" : "View"}
+              </button>
+            </span>
+          </div>
+
+          {!payslipId && (
+            <p className="m-0 text-right text-[11px] text-slate-400">
+              Not finalized yet — this is a preview; sending finalizes the slip first
+              and attaches that.
+            </p>
+          )}
 
           <div className="relative">
             <textarea

@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useEmployees } from "@/features/employees/hooks/useEmployees";
+import { GeneratedSlip } from "@/features/payroll/components/GeneratedSlip";
+import { employeeFor } from "@/features/payslips/lib/employeeFor";
+import { payslipService } from "@/features/payslips/services/payslipService";
+import type { PayslipRecord } from "@/features/payslips/types";
 import { EmptyState, ErrorState } from "@/shared/components/feedback/ErrorState";
 import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
@@ -18,7 +23,12 @@ import { PayRunResults } from "./components/PayRunResults";
 import { PayRunTable } from "./components/PayRunTable";
 import { usePayRun } from "./hooks/usePayRun";
 import { payRunService } from "./services/payRunService";
-import type { BulkEmailResult, ExportResult, PayRunResult } from "./types";
+import type {
+  BulkEmailResult,
+  ExportResult,
+  PayRunResult,
+  PayRunResultRow,
+} from "./types";
 
 const SELECT =
   "rounded-lg border border-line bg-white px-2.5 py-[7px] text-[13px] font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent";
@@ -26,6 +36,7 @@ const SELECT =
 export default function PayRunPage() {
   const run = usePayRun();
   const navigate = useNavigate();
+  const { roster } = useEmployees();
 
   const [finalizing, setFinalizing] = useState(false);
   const [result, setResult] = useState<PayRunResult | null>(null);
@@ -33,8 +44,30 @@ export default function PayRunPage() {
   const [emailed, setEmailed] = useState<BulkEmailResult | null>(null);
   const [busy, setBusy] = useState<"export" | "email" | null>(null);
   const [actionError, setActionError] = useState<Error | null>(null);
+  const [viewing, setViewing] = useState<PayslipRecord | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const asError = (e: unknown) => (e instanceof Error ? e : new Error(String(e)));
+
+  /**
+   * Opens the finalized slip in the same viewer the payslip history uses.
+   *
+   * The run's own rows carry only totals — no earnings or deductions lines — so
+   * the stored snapshot is fetched by id rather than reconstructed here. That
+   * also means what HR sees is what was actually saved, not a re-derivation.
+   */
+  const viewSlip = async (row: PayRunResultRow) => {
+    if (!row.payslipId) return;
+    setViewingId(row.payslipId);
+    setActionError(null);
+    try {
+      setViewing(await payslipService.get(row.payslipId));
+    } catch (e) {
+      setActionError(asError(e));
+    } finally {
+      setViewingId(null);
+    }
+  };
 
   const finalize = async () => {
     const replacing = run.totals.replacing;
@@ -128,13 +161,27 @@ export default function PayRunPage() {
           exported={exported}
           emailed={emailed}
           busy={busy}
+          viewingId={viewingId}
           onExport={exportPdfs}
           onOpenFolder={openFolder}
           onEmailAll={emailAll}
           onReset={reset}
+          onViewSlip={viewSlip}
         />
         {actionError && (
           <ErrorState title="That step did not finish" error={actionError} />
+        )}
+
+        {viewing && (
+          <GeneratedSlip
+            emp={employeeFor(viewing, roster)}
+            res={viewing.result}
+            dim={viewing.daysInMonth}
+            dpay={viewing.daysPayable}
+            period={viewing.period}
+            payslipId={viewing.id}
+            onClose={() => setViewing(null)}
+          />
         )}
       </div>
     );
@@ -209,10 +256,16 @@ export default function PayRunPage() {
           </div>
         </CardHeader>
 
-        {Object.keys(run.daysDraft).length > 0 && (
+        {/* Shown whenever anyone is short of the full month — including when those
+            reduced counts came from saved LOP records rather than an edit here. */}
+        {run.hasReducedDays && (
           <div className="flex items-center justify-end rounded-lg bg-paper/70 px-3 py-2">
-            <Button variant="ghost" onClick={run.resetDays}>
-              <RotateCcw size={13} /> Reset day counts
+            <Button
+              variant="ghost"
+              onClick={run.resetDays}
+              title={`Put every employee back on the full ${run.daysInMonth} days of ${run.period}`}
+            >
+              <RotateCcw size={13} /> Reset days payable to {run.daysInMonth}
             </Button>
           </div>
         )}

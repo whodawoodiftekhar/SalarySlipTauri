@@ -61,11 +61,8 @@ export function usePayrollRun(employee: Employee, period: string) {
     activeDays != null &&
     (activeDays.dim !== baseline.dim || activeDays.dpay !== baseline.dpay);
 
-  const setDim = useCallback(
-    (value: string) => setDayDraft({ period, dim: value, dpay }),
-    [period, dpay],
-  );
-
+  // No `setDim`: the month's length is not hand-editable on this screen, so a
+  // day draft only ever changes `dpay` and carries `dim` through unchanged.
   const setDpay = useCallback(
     (value: string) => setDayDraft({ period, dim, dpay: value }),
     [period, dim],
@@ -180,7 +177,6 @@ export function usePayrollRun(employee: Employee, period: string) {
     error,
     refetch,
     dim,
-    setDim,
     dpay,
     setDpay,
     update,

@@ -39,13 +39,14 @@ export function PayslipTable({
   onAction: (action: PayslipAction, slip: PayslipRecord) => void;
 }) {
   return (
-    <table className="w-full border-collapse max-mob:min-w-[820px]">
+    <table className="w-full border-collapse max-mob:min-w-[900px]">
       <thead>
         <tr>
           <th className={TH}>Employee</th>
           <th className={TH}>Period</th>
           <th className={TH}>Department</th>
-          <th className={`${TH} text-right`}>Days</th>
+          <th className={`${TH} text-right`}>Days in month</th>
+          <th className={`${TH} text-right`}>Days payable</th>
           <th className={`${TH} text-right`}>Gross</th>
           <th className={`${TH} text-right`}>Deductions</th>
           <th className={`${TH} text-right`}>Net paid</th>
@@ -81,11 +82,13 @@ export function PayslipTable({
               <td className={TD}>
                 <DeptTag dept={slip.dept || "General"} />
               </td>
+              <td className={`${TD} text-right font-mono tabular-nums text-mist`}>
+                {slip.daysInMonth}
+              </td>
               <td className={`${TD} text-right font-mono tabular-nums`}>
                 <span className={lop ? "font-bold text-warn-ink" : undefined}>
                   {slip.daysPayable}
                 </span>
-                <span className="text-mist">/{slip.daysInMonth}</span>
               </td>
               <td className={`${TD} text-right font-mono tabular-nums`}>
                 ₹{inr(slip.result?.gross)}

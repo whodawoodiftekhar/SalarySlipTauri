@@ -240,9 +240,10 @@ export function createPayslipPdfBuffer({
       const metaFields = [
         ["Employee Name", employeeName || "", "Bank Name", bankName || ""],
         ["Employee Code", employeeId || "", "IFSC Code", ifsc || ""],
-        ["Designation", role || "", "Bank Account No.", bankAccountNo || ""],
+        ["Designation", role || "", "Account No.", bankAccountNo || ""],
         ["Department", dept || "", "PF Account No.", pfAccountNo || ""],
-        ["Days Payable", `${daysPayable || 30} / ${daysInMonth || 30}`, "", ""],
+        ["Days in Month", `${daysInMonth || 30}`, "", ""],
+        ["Days Payable", `${daysPayable || 30}`, "", ""],
       ];
 
       const metaTotalH = metaFields.length * rowH;
@@ -361,8 +362,8 @@ export function createPayslipPdfBuffer({
       doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(numberToWords(netVal), 155, totalsY + 4, { width: 405, lineBreak: false });
       doc.moveTo(150, totalsY).lineTo(150, totalsY + rowH).stroke();
 
-      // Footnote at bottom
-      doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25);
+      // Footnote at bottom, centred across the table's full width (x = 30 to 565)
+      doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25, { width: 535, align: "center" });
 
       doc.end();
     } catch (err) {

@@ -40,7 +40,6 @@ export function PayrollEditor({
     error,
     refetch,
     dim,
-    setDim,
     dpay,
     setDpay,
     update,
@@ -199,11 +198,16 @@ export function PayrollEditor({
               </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
                 Days in month
+                {/* The month's length is the calendar's to state, not HR's — it
+                    comes from the period (or the count already stored for it).
+                    Days payable is the only figure edited on this screen. */}
                 <input
-                  className={DAY_INPUT}
+                  className={`${DAY_INPUT} cursor-not-allowed bg-paper text-mist`}
                   type="number"
                   value={dim}
-                  onChange={(e) => setDim(e.target.value)}
+                  readOnly
+                  aria-readonly="true"
+                  title={`${selectedPeriod} has ${dim} days — record LOP by lowering Days payable`}
                 />
               </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
@@ -211,6 +215,8 @@ export function PayrollEditor({
                 <input
                   className={DAY_INPUT}
                   type="number"
+                  min={0}
+                  max={dim}
                   value={dpay}
                   onChange={(e) => setDpay(e.target.value)}
                 />

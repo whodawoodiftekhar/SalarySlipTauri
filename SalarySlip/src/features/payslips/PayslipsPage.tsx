@@ -17,10 +17,10 @@ import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/Card";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { inr0 } from "@/shared/lib/format";
-import type { Employee } from "@/shared/types";
 import { PayslipTable, type PayslipAction } from "./components/PayslipTable";
 import { YtdModal } from "./components/YtdModal";
 import { usePayslips } from "./hooks/usePayslips";
+import { employeeFor } from "./lib/employeeFor";
 import { payslipService } from "./services/payslipService";
 import type { PayslipRecord } from "./types";
 
@@ -33,26 +33,6 @@ type Notice = {
   /** when set, the notice offers to reveal this folder in Explorer */
   folder?: string;
 };
-
-/**
- * Reconstructs the Employee shape the printed slip component needs.
- *
- * Bank and PF identifiers live on the employee record, not on the snapshot, so
- * they are looked up live; a slip for a since-deleted employee still opens with
- * the name and totals it was finalized with.
- */
-const employeeFor = (slip: PayslipRecord, roster: Employee[]): Employee =>
-  roster.find((e) => e.id === slip.employeeId) ?? {
-    id: slip.employeeId,
-    name: slip.employeeName,
-    email: slip.email,
-    dept: slip.dept,
-    role: slip.role,
-    basic: 0,
-    special: 0,
-    tds: 0,
-    onsite: 0,
-  };
 
 export default function PayslipsPage() {
   const { roster } = useEmployees();
@@ -122,8 +102,24 @@ export default function PayslipsPage() {
 
     try {
       if (action === "pdf") {
-        const filename = await payslipService.reprint(slip);
-        setNotice({ tone: "ok", text: `Saved ${filename} to your Downloads folder.` });
+        // Written by the server through the same writer the mailers use, so the
+        // file lands in the period's folder under Downloads — and is the very
+        // file an email would attach — instead of being a browser download
+        // dropped loose in the Downloads root.
+        const out = await payslipService.exportPdfs([slip.id]);
+        const failure = out.failed[0];
+
+        setNotice(
+          failure
+            ? { tone: "bad", text: failure.message }
+            : {
+                tone: "ok",
+                folder: out.folder,
+                text: `Saved ${out.saved[0]?.fileName ?? "the payslip"} to ${out.folder} — ${
+                  out.created ? "folder created" : "existing folder updated"
+                }.`,
+              },
+        );
       }
 
       if (action === "email") {

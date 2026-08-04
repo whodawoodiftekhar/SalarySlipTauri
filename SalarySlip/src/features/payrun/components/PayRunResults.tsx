@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Eye,
   FolderOpen,
   Loader2,
   Mail,
@@ -11,9 +12,18 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/Card";
 import { inr, inr0 } from "@/shared/lib/format";
-import type { BulkEmailResult, ExportResult, PayRunResult } from "../types";
+import type {
+  BulkEmailResult,
+  ExportResult,
+  PayRunResult,
+  PayRunResultRow,
+} from "../types";
 
 const TD = "border-b border-hairline p-2.5 align-middle text-[13px]";
+
+// same affordance as the payslip history's row actions
+const ICON_BTN =
+  "grid place-items-center rounded-lg border-none bg-transparent p-1.5 text-ash hover:bg-paper hover:text-ink disabled:opacity-40 cursor-pointer";
 
 const STATUS_LABEL = {
   finalized: { text: "Finalized", className: "text-earn" },
@@ -27,19 +37,24 @@ export function PayRunResults({
   exported,
   emailed,
   busy,
+  viewingId,
   onExport,
   onOpenFolder,
   onEmailAll,
   onReset,
+  onViewSlip,
 }: {
   result: PayRunResult;
   exported: ExportResult | null;
   emailed: BulkEmailResult | null;
   busy: "export" | "email" | null;
+  /** payslip currently being fetched for the viewer */
+  viewingId: string | null;
   onExport: () => void;
   onOpenFolder: () => void;
   onEmailAll: () => void;
   onReset: () => void;
+  onViewSlip: (row: PayRunResultRow) => void;
 }) {
   const navigate = useNavigate();
   const { summary } = result;
@@ -167,6 +182,27 @@ export function PayRunResults({
                       {mail.success ? `Emailed ${mail.recipient}` : mail.message}
                     </span>
                   )}
+                </td>
+                <td className={`${TD} text-right`}>
+                  {/* A failed row has no stored slip to open, so there is
+                      nothing to show — payslipId is null in that case. */}
+                  <button
+                    className={ICON_BTN}
+                    onClick={() => onViewSlip(row)}
+                    disabled={!row.payslipId || viewingId !== null}
+                    title={
+                      row.payslipId
+                        ? "View the finalized slip"
+                        : "This employee has no finalized slip to view"
+                    }
+                    aria-label={`View payslip for ${row.employeeName}`}
+                  >
+                    {viewingId === row.payslipId ? (
+                      <Loader2 size={15} className="animate-spin text-accent" />
+                    ) : (
+                      <Eye size={15} />
+                    )}
+                  </button>
                 </td>
               </tr>
             );
