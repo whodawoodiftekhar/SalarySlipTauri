@@ -1,5 +1,5 @@
 import { apiClient } from "@/services";
-import type { Employee } from "@/shared/types";
+import type { Employee, SalaryComponent } from "@/shared/types";
 import type { NewEmployeeDto, UpdateEmployeeDto } from "../types";
 
 export const employeeService = {

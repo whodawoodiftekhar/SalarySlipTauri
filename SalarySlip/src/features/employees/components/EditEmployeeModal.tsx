@@ -285,8 +285,13 @@ export function EditEmployeeModal({
                 <Wallet size={15} className="text-accent" /> Monthly Salary Setup
                 (₹)
               </div>
-              <span className="text-[11px] text-mist font-medium">
-                Active components in generated slip
+              <span className="flex items-center gap-1.5 text-[11px] text-mist font-medium">
+                {loadingStructure && (
+                  <Loader2 size={12} className="animate-spin" />
+                )}
+                {loadingStructure
+                  ? "Loading saved structure…"
+                  : "Active components in generated slip"}
               </span>
             </div>
 

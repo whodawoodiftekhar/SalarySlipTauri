@@ -13,7 +13,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/Card";
 import { inr0 } from "@/shared/lib/format";
-import { getRecentPeriods, PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { getRecentPeriods } from "@/shared/lib/periods";
 import { PayRunResults } from "./components/PayRunResults";
 import { PayRunTable } from "./components/PayRunTable";
 import { usePayRun } from "./hooks/usePayRun";

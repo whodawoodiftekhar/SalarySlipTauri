@@ -40,6 +40,7 @@ export function AddEmployeeModal({
     bankName: "",
     bankAccountNo: "",
     pfAccountNo: "",
+    ifsc: "",
     pan: "",
     uan: "",
     doj: "",

@@ -16,7 +16,7 @@ import type { EmployeeFormState } from "./types";
 export default function AddEmployeePage() {
   const navigate = useNavigate();
   const { addEmployee, saving } = useEmployees();
-  const { departments, company, payPeriod } = useSettings();
+  const { departments, company } = useSettings();
   const { items: catalogItems } = useCatalog();
 
   const [autoCode, setAutoCode] = useState("C11032");
@@ -94,7 +94,7 @@ export default function AddEmployeePage() {
   const isDeductionItem = (item: any) => {
     const g = String(item.group || item.type || "").toLowerCase();
     if (g === "deduction") return true;
-    const key = String(item.code || item.id || item.name || "").toLowerCase();
+    const key = String(item.code || item.name || "").toLowerCase();
     return ["pf", "tds", "advance", "insurance", "pt", "esi"].some((d) =>
       key.includes(d),
     );
@@ -104,7 +104,7 @@ export default function AddEmployeePage() {
     const obj: Record<string, number> = {};
     if (catalogItems.length > 0) {
       catalogItems.forEach((item) => {
-        const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+        const codeKey = (item.code || item.name || "").toLowerCase();
         const val = salaryInputs[codeKey] ?? (f as any)[codeKey];
         if (val !== undefined && val !== "") {
           obj[codeKey] = num(val);
@@ -317,7 +317,7 @@ export default function AddEmployeePage() {
                       {catalogItems
                         .filter((item) => !isDeductionItem(item))
                         .map((item) => {
-                          const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+                          const codeKey = (item.code || item.name || "").toLowerCase();
                           const isBasic = codeKey === "basic" || item.name.toLowerCase().includes("basic");
                           const rawVal = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
                           const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
@@ -350,7 +350,7 @@ export default function AddEmployeePage() {
                       {catalogItems
                         .filter((item) => isDeductionItem(item))
                         .map((item) => {
-                          const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+                          const codeKey = (item.code || item.name || "").toLowerCase();
                           const rawVal = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
                           const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
 

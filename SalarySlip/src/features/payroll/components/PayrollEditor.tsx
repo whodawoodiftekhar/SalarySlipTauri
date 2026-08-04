@@ -6,7 +6,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader } from "@/shared/components/ui/Card";
 import { num } from "@/shared/lib/format";
-import { getCurrentPeriod, getRecentPeriods, PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { getCurrentPeriod, getRecentPeriods } from "@/shared/lib/periods";
 import type { Employee } from "@/shared/types";
 import { usePayrollRun } from "../hooks/usePayrollRun";
 import { payrollService } from "../services/payrollService";
@@ -25,9 +25,9 @@ const DAY_INPUT =
 
 export function PayrollEditor({
   emp,
-  period,
 }: {
   emp: Employee;
+  /** Company pay period from settings; the editor tracks its own selection. */
   period: string;
 }) {
   const navigate = useNavigate();

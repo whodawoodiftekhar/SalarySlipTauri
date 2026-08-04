@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAsync } from "@/shared/hooks/useAsync";
 import { compute } from "@/shared/lib/calc";
 import { num } from "@/shared/lib/format";
@@ -26,8 +25,6 @@ interface DayDraft {
  * pay run had no idea anyone was on LOP.
  */
 export function usePayrollRun(employee: Employee, period: string) {
-  const { standardDays } = useSettings();
-
   const fetcher = useCallback(
     () => payrollService.getStructure(employee.id),
     [employee.id],
