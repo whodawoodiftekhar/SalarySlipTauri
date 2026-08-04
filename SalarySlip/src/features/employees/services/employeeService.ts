@@ -19,6 +19,14 @@ export const employeeService = {
     return apiClient.put<Employee>(`/employees/${id}`, patch);
   },
 
+  async getSalaryStructure(id: string): Promise<SalaryComponent[]> {
+    return apiClient.get<SalaryComponent[]>(`/employees/${id}/salary-structure`);
+  },
+
+  async updateSalaryStructure(id: string, components: SalaryComponent[]): Promise<SalaryComponent[]> {
+    return apiClient.put<SalaryComponent[]>(`/employees/${id}/salary-structure`, components);
+  },
+
   /** Removes the employee along with their salary structure and payslips. */
   async remove(id: string): Promise<void> {
     await apiClient.delete<{ deleted: boolean }>(`/employees/${id}`);
