@@ -48,7 +48,7 @@ export function SendOutlookEmailModal({
   // Formatted email body text state (editable by user)
   const [emailBodyText, setEmailBodyText] = useState(`Dear ${emp.name},
 
-Please find the salary slip for the pay period of ${period}.
+Please find the attached salary slip for the month of ${period}.
 
 Note: ${slipDefaults.footNote || "This is a computer generated salary slip and does not require signature."}
 
@@ -84,6 +84,7 @@ ${companyLegal}
     bankName: emp.bankName || slipDefaults.bankName,
     bankAccountNo: emp.bankAccountNo || slipDefaults.bankAccountNo,
     pfAccountNo: emp.pfAccountNo || slipDefaults.pfAccountNo,
+    ifsc: emp.ifsc || "",
     earnings: res.earnings,
     deductions: res.deductions,
     gross: res.gross,

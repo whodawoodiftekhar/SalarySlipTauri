@@ -54,6 +54,7 @@ export interface Employee {
   bankName?: string;
   bankAccountNo?: string;
   pfAccountNo?: string;
+  ifsc?: string;
   pan?: string;
   uan?: string;
   doj?: string;

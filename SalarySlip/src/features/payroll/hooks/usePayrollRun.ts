@@ -3,6 +3,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAsync } from "@/shared/hooks/useAsync";
 import { compute } from "@/shared/lib/calc";
 import { num } from "@/shared/lib/format";
+import { daysInPeriod } from "@/shared/lib/periods";
 import type { ComponentGroup, Employee, SalaryComponent } from "@/shared/types";
 import { payrollService } from "../services/payrollService";
 
@@ -46,11 +47,12 @@ export function usePayrollRun(employee: Employee, period: string) {
 
   const baseline = useMemo<{ dim: string; dpay: string }>(() => {
     if (dayBaseline?.period === period) return dayBaseline;
+    const realDays = daysInPeriod(period);
     return {
-      dim: String(savedDays?.daysInMonth ?? standardDays),
-      dpay: String(savedDays?.daysPayable ?? standardDays),
+      dim: String(savedDays?.daysInMonth ?? realDays),
+      dpay: String(savedDays?.daysPayable ?? realDays),
     };
-  }, [dayBaseline, period, savedDays, standardDays]);
+  }, [dayBaseline, period, savedDays]);
 
   // a draft belongs to the period it was typed against, so switching period
   // falls back to that period's stored counts instead of carrying LOP across

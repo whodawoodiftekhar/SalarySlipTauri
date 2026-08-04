@@ -13,7 +13,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/Card";
 import { inr0 } from "@/shared/lib/format";
-import { PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { getRecentPeriods, PERIOD_OPTIONS } from "@/shared/lib/periods";
 import { PayRunResults } from "./components/PayRunResults";
 import { PayRunTable } from "./components/PayRunTable";
 import { usePayRun } from "./hooks/usePayRun";
@@ -163,14 +163,17 @@ export default function PayRunPage() {
                 value={run.period}
                 onChange={(e) => run.setPeriod(e.target.value)}
               >
-                {!PERIOD_OPTIONS.includes(run.period) && (
-                  <option value={run.period}>{run.period}</option>
-                )}
-                {PERIOD_OPTIONS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
+                {(() => {
+                  const recentPeriods = getRecentPeriods(3);
+                  const allOptions = recentPeriods.includes(run.period)
+                    ? recentPeriods
+                    : [...recentPeriods, run.period];
+                  return allOptions.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ));
+                })()}
               </select>
             </label>
 

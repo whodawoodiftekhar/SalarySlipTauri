@@ -39,6 +39,7 @@ export default function AddEmployeePage() {
     bankName: "",
     bankAccountNo: "",
     pfAccountNo: "",
+    ifsc: "",
     pan: "",
     uan: "",
     doj: "",
@@ -72,32 +73,55 @@ export default function AddEmployeePage() {
     }
   };
 
+  const handleInputFocus = (
+    key: string,
+    val: any,
+    e: React.FocusEvent<HTMLInputElement>,
+  ) => {
+    if (val === 0 || val === "0") {
+      handleSalaryChange(key, "");
+    } else {
+      e.target.select();
+    }
+  };
+
+  const handleInputBlur = (key: string, val: any) => {
+    if (val === "" || val === undefined || val === null) {
+      handleSalaryChange(key, "0");
+    }
+  };
+
+  const isDeductionItem = (item: any) => {
+    const g = String(item.group || item.type || "").toLowerCase();
+    if (g === "deduction") return true;
+    const key = String(item.code || item.id || item.name || "").toLowerCase();
+    return ["pf", "tds", "advance", "insurance", "pt", "esi"].some((d) =>
+      key.includes(d),
+    );
+  };
+
   const seedObj = useMemo(() => {
-    const obj: Record<string, number> = {
-      basic: num(salaryInputs["basic"] ?? f.basic),
-      special: num(salaryInputs["special"] ?? f.special),
-      onsite: num(salaryInputs["onsite"] ?? f.onsite),
-      transport: num(salaryInputs["transport"] ?? f.transport),
-      projectAllowance: num(salaryInputs["projectAllowance"] ?? f.projectAllowance),
-      lta: num(salaryInputs["lta"] ?? f.lta),
-      medical: num(salaryInputs["medical"] ?? f.medical),
-      pf: num(salaryInputs["pf"] ?? f.pf),
-      tds: num(salaryInputs["tds"] ?? f.tds),
-    };
-    catalogItems.forEach((item) => {
-      const codeKey = (item.code || "").toLowerCase();
-      if (salaryInputs[codeKey] !== undefined) {
-        obj[codeKey] = num(salaryInputs[codeKey]);
-      }
-    });
+    const obj: Record<string, number> = {};
+    if (catalogItems.length > 0) {
+      catalogItems.forEach((item) => {
+        const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+        const val = salaryInputs[codeKey] ?? (f as any)[codeKey];
+        if (val !== undefined && val !== "") {
+          obj[codeKey] = num(val);
+        }
+      });
+    } else {
+      Object.entries(salaryInputs).forEach(([k, v]) => {
+        if (v !== "") obj[k] = num(v);
+      });
+    }
     return obj;
   }, [salaryInputs, f, catalogItems]);
 
   const valid = Boolean(
     f.name.trim() &&
       f.role.trim() &&
-      f.email.trim() &&
-      num(salaryInputs["basic"] ?? f.basic) > 0,
+      f.email.trim(),
   );
 
   const previewResult = compute(makeStructure(seedObj, catalogItems), 30, 30);
@@ -138,6 +162,7 @@ export default function AddEmployeePage() {
         bankName: f.bankName.trim(),
         bankAccountNo: f.bankAccountNo.trim(),
         pfAccountNo: f.pfAccountNo.trim(),
+        ifsc: f.ifsc.trim(),
         pan: f.pan.trim(),
         uan: f.uan.trim(),
         doj: f.doj.trim(),
@@ -224,7 +249,7 @@ export default function AddEmployeePage() {
             <div className="flex items-center gap-2 text-[13.5px] font-bold text-ink">
               <Landmark size={16} className="text-accent" /> Banking &amp; PF Accounts
             </div>
-            <div className="grid grid-cols-3 gap-3.5 max-xs:grid-cols-1">
+            <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
               <Field label="Bank Name">
                 <input
                   className={FIELD_INPUT}
@@ -239,6 +264,14 @@ export default function AddEmployeePage() {
                   value={f.bankAccountNo}
                   onChange={set("bankAccountNo")}
                   placeholder="Account number"
+                />
+              </Field>
+              <Field label="IFSC Code">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.ifsc}
+                  onChange={set("ifsc")}
+                  placeholder="e.g. HDFC0001234"
                 />
               </Field>
               <Field label="PF Account No.">
@@ -257,107 +290,89 @@ export default function AddEmployeePage() {
             <div className="flex items-center gap-2 text-[13.5px] font-bold text-ink">
               <Wallet size={16} className="text-accent" /> Monthly Salary Setup (₹)
             </div>
-            <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
-              {catalogItems.length > 0 ? (
-                catalogItems.map((item) => {
-                  const codeKey = (item.code || "").toLowerCase();
-                  const isBasic = codeKey === "basic" || item.name.toLowerCase().includes("basic");
-                  const val = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
-                  const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
 
-                  return (
-                    <Field key={item.code || item.name} label={`${item.name}${isBasic ? " *" : ""}`}>
-                      <input
-                        className={FIELD_INPUT}
-                        type="number"
-                        value={val}
-                        onChange={(e) => handleSalaryChange(codeKey, e.target.value)}
-                        placeholder={isAutoPct ? `Auto (${item.calc})` : "0"}
-                      />
-                    </Field>
-                  );
-                })
-              ) : (
-                <>
-                  <Field label="Basic Salary *">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.basic}
-                      onChange={(e) => handleSalaryChange("basic", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="Special Allowance">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.special}
-                      onChange={(e) => handleSalaryChange("special", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="Transport Allowance">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.transport}
-                      onChange={(e) => handleSalaryChange("transport", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="Project Allowance">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.projectAllowance}
-                      onChange={(e) => handleSalaryChange("projectAllowance", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="LTA (Leave Travel)">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.lta}
-                      onChange={(e) => handleSalaryChange("lta", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="Medical Allowance">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.medical}
-                      onChange={(e) => handleSalaryChange("medical", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="Onsite Incentive">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.onsite}
-                      onChange={(e) => handleSalaryChange("onsite", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                  <Field label="PF (Provident Fund)">
-                    <input
-                      className={FIELD_INPUT}
-                      type="number"
-                      value={f.pf}
-                      onChange={(e) => handleSalaryChange("pf", e.target.value)}
-                      placeholder="0"
-                    />
-                  </Field>
-                </>
-              )}
-            </div>
+            {catalogItems.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-line bg-white/70 p-5 text-center space-y-2">
+                <p className="m-0 text-[13px] text-ash font-medium">
+                  No salary components found in catalog.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-accent"
+                  onClick={() => navigate("/components")}
+                >
+                  + Add components in Catalog
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Earnings Sub-grid */}
+                {catalogItems.some((item) => !isDeductionItem(item)) && (
+                  <div>
+                    <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider mb-2">
+                      Earnings
+                    </div>
+                    <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
+                      {catalogItems
+                        .filter((item) => !isDeductionItem(item))
+                        .map((item) => {
+                          const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+                          const isBasic = codeKey === "basic" || item.name.toLowerCase().includes("basic");
+                          const rawVal = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
+                          const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
 
-            <p className="mt-3 text-[11.5px] leading-relaxed text-mist">
-              * HRA and other components will be attached automatically based on your company structure.
-            </p>
+                          return (
+                            <Field key={item.code || item.name} label={`${item.name}${isBasic ? " *" : ""}`}>
+                              <input
+                                className={FIELD_INPUT}
+                                type="number"
+                                value={rawVal}
+                                onFocus={(e) => handleInputFocus(codeKey, rawVal, e)}
+                                onBlur={() => handleInputBlur(codeKey, rawVal)}
+                                onChange={(e) => handleSalaryChange(codeKey, e.target.value)}
+                                placeholder={isAutoPct ? `Auto (${item.calc})` : "0"}
+                              />
+                            </Field>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deductions Sub-grid */}
+                {catalogItems.some((item) => isDeductionItem(item)) && (
+                  <div>
+                    <div className="text-[11px] font-bold text-rose-700 uppercase tracking-wider mb-2">
+                      Deductions
+                    </div>
+                    <div className="grid grid-cols-2 gap-3.5 max-xs:grid-cols-1">
+                      {catalogItems
+                        .filter((item) => isDeductionItem(item))
+                        .map((item) => {
+                          const codeKey = (item.code || item.id || item.name || "").toLowerCase();
+                          const rawVal = salaryInputs[codeKey] ?? (f as any)[codeKey] ?? "";
+                          const isAutoPct = item.calc && (item.calc.includes("%") || item.calc.includes("statutory"));
+
+                          return (
+                            <Field key={item.code || item.name} label={item.name}>
+                              <input
+                                className={FIELD_INPUT}
+                                type="number"
+                                value={rawVal}
+                                onFocus={(e) => handleInputFocus(codeKey, rawVal, e)}
+                                onBlur={() => handleInputBlur(codeKey, rawVal)}
+                                onChange={(e) => handleSalaryChange(codeKey, e.target.value)}
+                                placeholder={isAutoPct ? `Auto (${item.calc})` : "0"}
+                              />
+                            </Field>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {submitError && (
@@ -398,38 +413,34 @@ export default function AddEmployeePage() {
               </div>
             </div>
 
-            <div className="text-center text-[12px] font-bold uppercase tracking-[0.06em] text-ink">
-              PAY SLIP — {payPeriod}
-            </div>
-
             <div className="grid grid-cols-2 gap-x-5 gap-y-2 border-b border-line pb-3.5 text-[12px]">
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">EMPLOYEE</span>
                 <b className="text-right text-ink font-semibold">{f.name || "—"}</b>
               </div>
               <div className="flex justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-ash">DESIGNATION</span>
-                <b className="text-right text-ink font-semibold">{f.role || "—"}</b>
+                <span className="text-[11px] uppercase tracking-wider text-ash">BANK NAME</span>
+                <b className="text-right text-ink font-semibold">{f.bankName || "—"}</b>
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">CODE</span>
                 <b className="text-right text-ink font-semibold">{f.id || "—"}</b>
               </div>
               <div className="flex justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-ash">BANK NAME</span>
-                <b className="text-right text-ink font-semibold">{f.bankName || "—"}</b>
+                <span className="text-[11px] uppercase tracking-wider text-ash">IFSC CODE</span>
+                <b className="text-right text-ink font-semibold">{f.ifsc || "—"}</b>
               </div>
               <div className="flex justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-ash">DEPARTMENT</span>
-                <b className="text-right text-ink font-semibold">{f.dept || "—"}</b>
+                <span className="text-[11px] uppercase tracking-wider text-ash">DESIGNATION</span>
+                <b className="text-right text-ink font-semibold">{f.role || "—"}</b>
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">BANK ACCOUNT</span>
                 <b className="text-right text-ink font-semibold">{f.bankAccountNo || "—"}</b>
               </div>
               <div className="flex justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-ash">DAYS PAYABLE</span>
-                <b className="text-right text-ink font-semibold">30 / 30</b>
+                <span className="text-[11px] uppercase tracking-wider text-ash">DEPARTMENT</span>
+                <b className="text-right text-ink font-semibold">{f.dept || "—"}</b>
               </div>
               <div className="flex justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-ash">PF ACCOUNT</span>

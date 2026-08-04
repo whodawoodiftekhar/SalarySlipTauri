@@ -3,7 +3,7 @@ import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAsync } from "@/shared/hooks/useAsync";
 import { compute, dayRates } from "@/shared/lib/calc";
 import { num, round2 } from "@/shared/lib/format";
-import { PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { daysInPeriod, getCurrentPeriod, PERIOD_OPTIONS } from "@/shared/lib/periods";
 import { payRunService } from "../services/payRunService";
 import type { PayRunRow } from "../types";
 
@@ -18,11 +18,24 @@ import type { PayRunRow } from "../types";
  */
 export function usePayRun() {
   const { payPeriod, standardDays } = useSettings();
+  const currentMonth = getCurrentPeriod();
 
-  const [period, setPeriod] = useState(
-    PERIOD_OPTIONS.includes(payPeriod) ? payPeriod : payPeriod || PERIOD_OPTIONS[0],
-  );
-  const [daysInMonth, setDaysInMonth] = useState(String(standardDays));
+  const initialPeriod = PERIOD_OPTIONS.includes(payPeriod) ? payPeriod : currentMonth;
+
+  const [period, setPeriodState] = useState(initialPeriod);
+  const [daysInMonthOverride, setDaysInMonthOverride] = useState<string | null>(null);
+
+  const calendarDays = daysInPeriod(period);
+  const daysInMonth = daysInMonthOverride ?? String(calendarDays);
+
+  const setPeriod = useCallback((newPeriod: string) => {
+    setPeriodState(newPeriod);
+    setDaysInMonthOverride(null);
+  }, []);
+
+  const setDaysInMonth = useCallback((val: string) => {
+    setDaysInMonthOverride(val);
+  }, []);
 
   /** Per-employee days payable, only for rows HR actually changed. */
   const [days, setDays] = useState<Record<string, string>>({});

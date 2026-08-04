@@ -23,6 +23,7 @@ const employeeSchema = new mongoose.Schema(
     bankName: { type: String, default: "", trim: true },
     bankAccountNo: { type: String, default: "", trim: true },
     pfAccountNo: { type: String, default: "", trim: true },
+    ifsc: { type: String, default: "", trim: true },
     pan: { type: String, default: "", trim: true },
     uan: { type: String, default: "", trim: true },
     doj: { type: String, default: "", trim: true },

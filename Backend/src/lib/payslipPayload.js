@@ -47,6 +47,7 @@ export function buildPayslipPdfInput({ payslip, employee = {}, settings = {}, em
     bankName: employee.bankName || slipDefaults.bankName || "",
     bankAccountNo: employee.bankAccountNo || slipDefaults.bankAccountNo || "",
     pfAccountNo: employee.pfAccountNo || slipDefaults.pfAccountNo || "",
+    ifsc: employee.ifsc || "",
     companyLogo: company.logoUrl,
     companyName: company.legalName || company.name,
     companyAddress: company.addressLines,
@@ -71,7 +72,7 @@ export function buildPayslipPdfInput({ payslip, employee = {}, settings = {}, em
 export function payslipEmailBody({ employeeName, period, companyName, footNote }) {
   return `Dear ${employeeName || "Employee"},
 
-Please find the salary slip for the pay period of ${period}.
+Please find the attached salary slip for the month of ${period}.
 
 Note: ${footNote || "This is a computer generated salary slip and does not require signature."}
 

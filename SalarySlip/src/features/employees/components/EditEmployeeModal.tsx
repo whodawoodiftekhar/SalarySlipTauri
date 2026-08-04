@@ -30,6 +30,7 @@ export function EditEmployeeModal({
     bankName: employee.bankName ?? "",
     bankAccountNo: employee.bankAccountNo ?? "",
     pfAccountNo: employee.pfAccountNo ?? "",
+    ifsc: employee.ifsc ?? "",
     pan: employee.pan ?? "",
     uan: employee.uan ?? "",
     doj: employee.doj ?? "",
@@ -121,6 +122,7 @@ export function EditEmployeeModal({
         bankName: f.bankName.trim(),
         bankAccountNo: f.bankAccountNo.trim(),
         pfAccountNo: f.pfAccountNo.trim(),
+        ifsc: f.ifsc.trim(),
         pan: f.pan.trim(),
         uan: f.uan.trim(),
         doj: f.doj.trim(),
@@ -240,7 +242,7 @@ export function EditEmployeeModal({
               <Landmark size={15} className="text-accent" /> Banking &amp; PF
               Accounts
             </div>
-            <div className="grid grid-cols-3 gap-3 max-xs:grid-cols-1">
+            <div className="grid grid-cols-2 gap-3 max-xs:grid-cols-1">
               <Field label="Bank Name">
                 <input
                   className={FIELD_INPUT}
@@ -255,6 +257,14 @@ export function EditEmployeeModal({
                   value={f.bankAccountNo}
                   onChange={set("bankAccountNo")}
                   placeholder="Account number"
+                />
+              </Field>
+              <Field label="IFSC Code">
+                <input
+                  className={FIELD_INPUT}
+                  value={f.ifsc}
+                  onChange={set("ifsc")}
+                  placeholder="e.g. HDFC0001234"
                 />
               </Field>
               <Field label="PF Account No.">

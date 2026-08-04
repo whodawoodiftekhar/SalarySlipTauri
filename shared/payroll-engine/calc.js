@@ -37,10 +37,7 @@ export const num = (v) =>
  *   - `prorate: true`  day-rates a deduction that would otherwise stay whole
  *                      (a loan instalment; TDS and PT normally should not)
  */
-export const dayRates = (c) =>
-  c && !c.fixed
-    ? c.group === "earning" || c.calc === "statutory_pf" || Boolean(c.prorate)
-    : false;
+export const dayRates = (c) => (c ? Boolean(c.prorate) : false);
 
 /**
  * Resolves a salary structure into rupee amounts.

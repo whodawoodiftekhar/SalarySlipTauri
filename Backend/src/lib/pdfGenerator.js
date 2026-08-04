@@ -60,6 +60,63 @@ function formatMoney(val) {
   return safeNum(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function numberToWords(amount) {
+  const n = Math.abs(safeNum(amount));
+  if (n === 0) return "Rupees Zero Only";
+
+  const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const convertBelowThousand = (numVal) => {
+    let str = "";
+    if (numVal >= 100) {
+      str += units[Math.floor(numVal / 100)] + " Hundred";
+      numVal %= 100;
+      if (numVal > 0) str += " ";
+    }
+    if (numVal > 0) {
+      if (numVal < 20) {
+        str += units[numVal];
+      } else {
+        str += tens[Math.floor(numVal / 10)];
+        if (numVal % 10 > 0) str += " " + units[numVal % 10];
+      }
+    }
+    return str;
+  };
+
+  const rupeesInt = Math.floor(n);
+  const paiseInt = Math.round((n - rupeesInt) * 100);
+
+  let rupeeStr = "";
+  let tempRupees = rupeesInt;
+
+  if (tempRupees >= 10000000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 10000000)) + " Crore ";
+    tempRupees %= 10000000;
+  }
+  if (tempRupees >= 100000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 100000)) + " Lakh ";
+    tempRupees %= 100000;
+  }
+  if (tempRupees >= 1000) {
+    rupeeStr += convertBelowThousand(Math.floor(tempRupees / 1000)) + " Thousand ";
+    tempRupees %= 1000;
+  }
+  if (tempRupees > 0) {
+    rupeeStr += convertBelowThousand(tempRupees);
+  }
+
+  rupeeStr = rupeeStr.trim();
+  let result = rupeeStr ? `Rupees ${rupeeStr}` : "Rupees Zero";
+  if (paiseInt > 0) {
+    result += ` and ${convertBelowThousand(paiseInt)} Paise`;
+  }
+  result += " Only";
+
+  return result;
+}
+
 export function createPayslipPdfBuffer({
   employeeId,
   employeeName,
@@ -77,6 +134,7 @@ export function createPayslipPdfBuffer({
   bankName,
   bankAccountNo,
   pfAccountNo,
+  ifsc,
   earnings = [],
   deductions = [],
   gross = 0,
@@ -145,11 +203,11 @@ export function createPayslipPdfBuffer({
       const rowH = 18;
 
       const metaFields = [
-        ["Employee Name", employeeName || "Dawood", "Designation", role || "Junir"],
-        ["Employee Code", employeeId || "C11027", "Bank Name", bankName || "BUNB"],
-        ["Department", dept || "IT", "Bank Account No.", bankAccountNo || "500977255349"],
-        ["Days in Month", "30", "PF Account No.", pfAccountNo || "4322"],
-        ["Days Payable", "30", "", ""],
+        ["Employee Name", employeeName || "", "Bank Name", bankName || ""],
+        ["Employee Code", employeeId || "", "IFSC Code", ifsc || ""],
+        ["Designation", role || "", "Bank Account No.", bankAccountNo || ""],
+        ["Department", dept || "", "PF Account No.", pfAccountNo || ""],
+        ["Days Payable", `${daysPayable || 30} / ${daysInMonth || 30}`, "", ""],
       ];
 
       const metaTotalH = metaFields.length * rowH;
@@ -260,6 +318,13 @@ export function createPayslipPdfBuffer({
       doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text("Net Salary", 290, totalsY + 4);
       doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text(formatMoney(netVal), 440, totalsY + 4, { width: 115, align: "right" });
       doc.moveTo(435, totalsY).lineTo(435, totalsY + rowH).stroke();
+
+      totalsY += rowH;
+      // Row: In Words
+      doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
+      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text("In Words", 35, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(numberToWords(netVal), 155, totalsY + 4, { width: 405, lineBreak: false });
+      doc.moveTo(150, totalsY).lineTo(150, totalsY + rowH).stroke();
 
       // Footnote at bottom
       doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25);

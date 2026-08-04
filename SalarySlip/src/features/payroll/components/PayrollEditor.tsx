@@ -6,7 +6,7 @@ import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader } from "@/shared/components/ui/Card";
 import { num } from "@/shared/lib/format";
-import { PERIOD_OPTIONS } from "@/shared/lib/periods";
+import { getCurrentPeriod, getRecentPeriods, PERIOD_OPTIONS } from "@/shared/lib/periods";
 import type { Employee } from "@/shared/types";
 import { usePayrollRun } from "../hooks/usePayrollRun";
 import { payrollService } from "../services/payrollService";
@@ -31,9 +31,8 @@ export function PayrollEditor({
   period: string;
 }) {
   const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    PERIOD_OPTIONS.includes(period) ? period : period || "Jul 2026",
-  );
+  const currentMonth = getCurrentPeriod();
+  const [selectedPeriod, setSelectedPeriod] = useState(currentMonth);
   const {
     comps,
     res,
@@ -185,14 +184,17 @@ export function PayrollEditor({
                   value={selectedPeriod}
                   onChange={(e) => setSelectedPeriod(e.target.value)}
                 >
-                  {!PERIOD_OPTIONS.includes(selectedPeriod) && (
-                    <option value={selectedPeriod}>{selectedPeriod}</option>
-                  )}
-                  {PERIOD_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
+                  {(() => {
+                    const recentPeriods = getRecentPeriods(3);
+                    const allOptions = recentPeriods.includes(selectedPeriod)
+                      ? recentPeriods
+                      : [...recentPeriods, selectedPeriod];
+                    return allOptions.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-[0.06em] text-ash">
