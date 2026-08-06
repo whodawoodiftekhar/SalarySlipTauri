@@ -62,7 +62,7 @@ export function SendOutlookEmailModal({
 
 Please find the attached salary slip for the month of ${period}.
 
-Note: ${slipDefaults.footNote || "This is a computer generated salary slip and does not require signature."}
+Note: ${slipDefaults.footNote || "This is a computer generated salary slip and does not require signature,For any discrepancies, please contact the HR Department ."}
 
 Best regards,
 Human Resourse

@@ -25,6 +25,7 @@ import mongoose from "mongoose";
 import { connectDBWithRetry } from "./config/db.js";
 import { installPdfFontResolver, standardFontsAvailable } from "./lib/pdfFonts.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import authRoutes from "./routes/auth.js";
 import catalogRoutes from "./routes/catalog.js";
 import employeeRoutes from "./routes/employees.js";
 import mailAccountRoutes from "./routes/mailAccount.js";
@@ -117,6 +118,7 @@ const checkDbConnection = (req, res, next) => {
   next();
 };
 
+app.use("/api/auth", authRoutes);
 app.use("/api/settings", checkDbConnection, settingsRoutes);
 app.use("/api/mail-account", checkDbConnection, mailAccountRoutes);
 app.use("/api/employees", checkDbConnection, employeeRoutes);

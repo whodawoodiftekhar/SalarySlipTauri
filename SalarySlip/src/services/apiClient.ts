@@ -2,10 +2,17 @@ import { env } from "@/config/env";
 import { HttpError } from "./httpError";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("hr_auth_token") || localStorage.getItem("hr_auth_token")
+      : null;
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
   const res = await fetch(`${env.apiUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders,
       ...init?.headers,
     },
   });

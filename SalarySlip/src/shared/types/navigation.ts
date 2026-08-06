@@ -7,4 +7,6 @@ export interface NavItem {
   path: string;
   /** reachable by URL and titled like any page, but kept out of the sidebar */
   hidden?: boolean;
+  colorClass?: string;
+  bgClass?: string;
 }
