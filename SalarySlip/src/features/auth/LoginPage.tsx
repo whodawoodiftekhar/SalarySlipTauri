@@ -42,13 +42,13 @@ export const LoginPage: React.FC = () => {
         navigate("/dashboard");
       } else {
         const res = await authService.forgotPassword(formData.email.trim());
-        setSuccess(res.message || "Password reset email sent to your registered account! Please check your Outlook inbox.");
+        setSuccess(res.message || "Your login password has been sent to your registered Outlook email address! Please check your inbox.");
       }
     } catch (err: any) {
       console.error("Auth error:", err);
       let msg = mode === "login"
         ? "Invalid email address or password. Please try again."
-        : "Failed to send password reset email. Please try again.";
+        : "Failed to send password email. Please try again.";
       if (err?.message) {
         try {
           const parsed = JSON.parse(err.message.split(" — ")[1] || "{}");
@@ -83,7 +83,7 @@ export const LoginPage: React.FC = () => {
           <p className="mt-1 text-xs text-slate-500 max-w-xs leading-relaxed">
             {mode === "login"
               ? "Sign in with your HR email address to access Payroll Management"
-              : "Click below to send a secure password reset link to your registered HR email address via Outlook"}
+              : "Click below to send your login password directly to your registered Outlook email address"}
           </p>
         </div>
 
@@ -183,7 +183,7 @@ export const LoginPage: React.FC = () => {
           ) : (
             <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-center">
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Clicking <strong>Send Reset Link</strong> will deliver a password reset email directly to your registered HR email address in Outlook.
+                Clicking <strong>Send Password via Outlook</strong> will deliver your login password directly to your Outlook inbox.
               </p>
             </div>
           )}
@@ -197,7 +197,7 @@ export const LoginPage: React.FC = () => {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
               <>
-                <span>{mode === "login" ? "Sign In" : "Send Reset Link"}</span>
+                <span>{mode === "login" ? "Sign In" : "Send Password via Outlook"}</span>
                 <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
               </>
             )}

@@ -1,5 +1,51 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import { verifyOutlookAccount } from "../lib/outlookVerify.js";
+import { describeMailAccount } from "./MailAccount.js";
+
+// AES-256 Encryption key & algorithm for secure DB password encryption
+const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || "salaryslip-secret-key-32-chars!!";
+const ALGORITHM = "aes-256-cbc";
+
+/**
+ * Encrypts plain text password into encrypted hex string stored in MongoDB.
+ */
+export function encryptPassword(plainText) {
+  if (!plainText) return "";
+  if (plainText.startsWith("enc:")) return plainText; // Already encrypted
+  try {
+    const key = crypto.scryptSync(ENCRYPTION_SECRET, "salt", 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    let encrypted = cipher.update(String(plainText).trim(), "utf8", "hex");
+    encrypted += cipher.final("hex");
+    return `enc:${iv.toString("hex")}:${encrypted}`;
+  } catch (err) {
+    console.error("[User Model] Encryption error:", err);
+    return plainText;
+  }
+}
+
+/**
+ * Decrypts encrypted MongoDB password back into original plain text.
+ */
+export function decryptPassword(cipherText) {
+  if (!cipherText) return "";
+  if (!cipherText.startsWith("enc:")) return cipherText; // Return as-is if plain text
+  try {
+    const parts = cipherText.split(":");
+    const iv = Buffer.from(parts[1], "hex");
+    const encryptedText = parts[2];
+    const key = crypto.scryptSync(ENCRYPTION_SECRET, "salt", 32);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(encryptedText, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (err) {
+    console.error("[User Model] Decryption error:", err);
+    return cipherText;
+  }
+}
 
 const userSchema = new mongoose.Schema(
   {
@@ -14,10 +60,11 @@ const userSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
-// Method to verify password (trims whitespace for exact match)
+// Method to verify password against candidate
 userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!candidatePassword || !this.password) return false;
-  return String(this.password).trim() === String(candidatePassword).trim();
+  const decryptedPass = decryptPassword(this.password);
+  return String(decryptedPass).trim() === String(candidatePassword).trim();
 };
 
 export const User = mongoose.model("User", userSchema, "users");
@@ -30,10 +77,14 @@ export const DEFAULT_INITIAL_HR = {
 };
 
 /**
- * Detects active signed-in Outlook email address from local Outlook profile.
+ * Detects active signed-in Outlook email address from local Outlook profile or settings.
  */
 export async function getActiveOutlookEmail() {
   try {
+    const mailAcc = await describeMailAccount();
+    if (mailAcc && mailAcc.user) {
+      return mailAcc.user.toLowerCase();
+    }
     const verify = await verifyOutlookAccount();
     if (verify && verify.accounts && verify.accounts.length > 0) {
       return verify.accounts[0].toLowerCase();
@@ -46,7 +97,7 @@ export async function getActiveOutlookEmail() {
 
 /**
  * Seeds default HR user ONLY if the user database is completely empty.
- * Ensures default email is payroll@comm-it.com and password is Payroll@123.
+ * Encrypts all user passwords in MongoDB securely.
  */
 export async function seedInitialHRUser() {
   if (mongoose.connection.readyState !== 1) {
@@ -56,19 +107,29 @@ export async function seedInitialHRUser() {
     // Strip legacy passwordHash field directly at MongoDB collection level
     await User.collection.updateMany({}, { $unset: { passwordHash: "" } });
 
-    // Ensure initial user document has clean email and password
+    // Encrypt all user passwords in MongoDB
+    const usersToEncrypt = await User.find({});
+    for (const u of usersToEncrypt) {
+      if (u.password && !u.password.startsWith("enc:")) {
+        u.password = encryptPassword(u.password);
+        await u.save();
+        console.log(`[Auth Migration] Encrypted password in MongoDB for ${u.email}`);
+      }
+    }
+
     const totalUsers = await User.countDocuments();
     if (totalUsers === 0) {
+      const encryptedDefaultPass = encryptPassword(DEFAULT_INITIAL_HR.defaultPassword);
       await User.create({
         name: DEFAULT_INITIAL_HR.name,
         email: DEFAULT_INITIAL_HR.email,
-        password: DEFAULT_INITIAL_HR.defaultPassword,
+        password: encryptedDefaultPass,
         role: "HR",
         initials: DEFAULT_INITIAL_HR.initials,
       });
-      console.log(`[Auth] Initial HR Admin user seeded with email: ${DEFAULT_INITIAL_HR.email}`);
+      console.log(`[Auth] Initial HR Admin user seeded with encrypted password: ${DEFAULT_INITIAL_HR.email}`);
     }
   } catch (err) {
-    console.error("[Auth] Error seeding/migrating HR user:", err);
+    console.error("[Auth] Error seeding/encrypting HR user:", err);
   }
 }

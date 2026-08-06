@@ -1,9 +1,9 @@
 import express from "express";
 import mongoose from "mongoose";
-import crypto from "node:crypto";
-import { User, seedInitialHRUser, getActiveOutlookEmail } from "../models/User.js";
+import { User, seedInitialHRUser, getActiveOutlookEmail, decryptPassword, encryptPassword } from "../models/User.js";
+import { describeMailAccount } from "../models/MailAccount.js";
 import { generateToken, protect } from "../middleware/auth.js";
-import { sendPasswordResetEmail } from "../services/emailService.js";
+import { sendDirectPasswordEmail } from "../services/emailService.js";
 
 const router = express.Router();
 
@@ -89,8 +89,8 @@ router.post("/login", async (req, res) => {
 
 /**
  * POST /api/auth/forgot-password
- * Automatically fetches registered HR user from MongoDB users collection
- * and sends password reset token email via Outlook.
+ * Fetches configured email address from mailaccount collection
+ * and sends plain login password directly to their Outlook email.
  */
 router.post("/forgot-password", async (req, res) => {
   try {
@@ -101,18 +101,8 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    let targetEmail = req.body?.email ? String(req.body.email).trim().toLowerCase() : "";
-    let user = null;
-
-    if (targetEmail) {
-      user = await User.findOne({ email: targetEmail });
-    }
-
-    // If no email supplied or not found by supplied email, fetch registered user from MongoDB
-    if (!user) {
-      user = await User.findOne({});
-    }
-
+    // Fetch user from users collection
+    let user = await User.findOne({});
     if (!user) {
       return res.status(404).json({
         error: "User Not Found",
@@ -120,95 +110,34 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    // Generate secure random token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    // Fetch recipient email address from mailaccount collection
+    let targetEmail = user.email;
+    try {
+      const mailAcc = await describeMailAccount();
+      if (mailAcc && mailAcc.user && mailAcc.user.trim()) {
+        targetEmail = mailAcc.user.trim();
+      }
+    } catch (err) {
+      console.warn("[Auth Route] Could not read mailaccount collection, fallback to user.email:", err.message);
+    }
 
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = tokenExpiry;
-    await user.save();
+    // Decrypt encrypted MongoDB password into plain text for email delivery
+    const plainPassword = decryptPassword(user.password);
 
-    const hostOrigin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
-
-    // Send email via Outlook service
-    await sendPasswordResetEmail({
-      toEmail: user.email,
-      resetToken,
-      hostOrigin,
+    // Send direct password email via Outlook service
+    await sendDirectPasswordEmail({
+      toEmail: targetEmail,
+      password: plainPassword,
     });
 
     return res.json({
       ok: true,
-      message: "Password reset email sent to your registered account! Please check your Outlook inbox.",
+      email: targetEmail,
+      message: "Your login password has been sent to your registered Outlook email address! Please check your inbox.",
     });
   } catch (err) {
     console.error("[Auth Route] Forgot password error:", err);
-    return res.status(500).json({ error: "Server Error", message: "Failed to process password reset request." });
-  }
-});
-
-/**
- * POST /api/auth/reset-password
- * Resets user password using valid token.
- */
-router.post("/reset-password", async (req, res) => {
-  try {
-    const { token, newPassword, confirmPassword } = req.body;
-
-    if (!token || !newPassword || !confirmPassword) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Please fill in all fields: reset token, new password, and confirm password.",
-      });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "New password and confirm password do not match.",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "New password must be at least 6 characters long.",
-      });
-    }
-
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Service Unavailable",
-        message: "MongoDB is offline. Please start local MongoDB.",
-      });
-    }
-
-    // Find user with matching, non-expired reset token
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: new Date() },
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        error: "Invalid or Expired Token",
-        message: "The password reset link is invalid or has expired. Please request a new password reset email.",
-      });
-    }
-
-    // Save new plain text password directly and clear token fields
-    user.password = String(newPassword).trim();
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
-    await user.save();
-
-    return res.json({
-      ok: true,
-      message: "Password reset successful! You can now log in with your new password.",
-    });
-  } catch (err) {
-    console.error("[Auth Route] Reset password error:", err);
-    return res.status(500).json({ error: "Server Error", message: "Failed to reset password." });
+    return res.status(500).json({ error: "Server Error", message: "Failed to send password email." });
   }
 });
 
@@ -293,7 +222,7 @@ router.post("/update-profile", protect, async (req, res) => {
 
 /**
  * POST /api/auth/change-password
- * Allows HR to update their password.
+ * Allows HR to update their password securely.
  */
 router.post("/change-password", protect, async (req, res) => {
   try {
@@ -337,8 +266,8 @@ router.post("/change-password", protect, async (req, res) => {
       }
     }
 
-    // Save plain text password directly
-    dbUser.password = String(newPassword).trim();
+    // Encrypt new password using AES encryption before saving
+    dbUser.password = encryptPassword(newPassword);
     await dbUser.save();
 
     return res.json({

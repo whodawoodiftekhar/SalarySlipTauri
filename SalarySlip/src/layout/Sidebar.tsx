@@ -37,7 +37,7 @@ export function Sidebar() {
   }, []);
 
   const sendingAddress = mail?.user?.trim() || "";
-  const shownEmail = user?.email || sendingAddress || currentUser.email;
+  const shownEmail = sendingAddress || user?.email || currentUser.email;
   const shownName = user?.name || currentUser.name;
   const shownInitials = user?.initials || currentUser.initials;
 
@@ -140,6 +140,9 @@ export function Sidebar() {
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <b className="block truncate text-[13px] text-slate-900">{shownName}</b>
+                <small className="block truncate text-[11px] text-slate-500">
+                  {shownEmail}
+                </small>
               </div>
             )}
           </div>
