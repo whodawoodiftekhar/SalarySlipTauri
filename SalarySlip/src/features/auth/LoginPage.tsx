@@ -1,29 +1,28 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { authService } from "./services/authService";
 import { useSettings } from "@/features/settings/hooks/useSettings";
 import { LOGO } from "@/shared/lib/branding";
-import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, User as UserIcon } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const { company } = useSettings();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "forgot">("login");
 
-  // Single common useState object for form submission data
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
-    confirmPassword: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const { login, register } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,30 +33,22 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
     try {
       if (mode === "login") {
         await login(formData.email, formData.password);
+        navigate("/dashboard");
       } else {
-        if (!formData.name.trim()) {
-          setError("Full Name is required for registration.");
-          setLoading(false);
-          return;
-        }
-        if (formData.password !== formData.confirmPassword) {
-          setError("Password and Confirm Password do not match.");
-          setLoading(false);
-          return;
-        }
-        await register(formData.name, formData.email, formData.password);
+        const res = await authService.forgotPassword(formData.email.trim());
+        setSuccess(res.message || "Password reset email sent to your registered account! Please check your Outlook inbox.");
       }
-      navigate("/dashboard");
     } catch (err: any) {
-      console.error("Auth failed:", err);
+      console.error("Auth error:", err);
       let msg = mode === "login"
-        ? "Invalid email or password. Please try again."
-        : "Failed to create account. Please check your details.";
+        ? "Invalid email address or password. Please try again."
+        : "Failed to send password reset email. Please try again.";
       if (err?.message) {
         try {
           const parsed = JSON.parse(err.message.split(" — ")[1] || "{}");
@@ -87,12 +78,12 @@ export const LoginPage: React.FC = () => {
             <img src={company?.logoUrl || LOGO} alt="Company Logo" className="h-12 max-h-12 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            {mode === "login" ? "HR Portal Login" : "Create HR Account"}
+            {mode === "login" ? "HR Portal Sign In" : "Forgot Password"}
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 max-w-xs leading-relaxed">
             {mode === "login"
-              ? "Sign in to access Payroll Management & Employee Details"
-              : "Enter your HR details to register a new admin account"}
+              ? "Sign in with your HR email address to access Payroll Management"
+              : "Click below to send a secure password reset link to your registered HR email address via Outlook"}
           </p>
         </div>
 
@@ -104,6 +95,14 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
+        {/* Success Banner */}
+        {success && (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
+            <span className="leading-relaxed">{success}</span>
+          </div>
+        )}
+
         {/* Form with readOnly protection & dummy inputs to prevent browser autofill */}
         <form onSubmit={handleSubmit} autoComplete="off" className="mt-6 space-y-3.5">
           
@@ -111,115 +110,81 @@ export const LoginPage: React.FC = () => {
           <input type="text" name="prevent_autofill_email" className="hidden" tabIndex={-1} aria-hidden />
           <input type="password" name="prevent_autofill_pass" className="hidden" tabIndex={-1} aria-hidden />
 
-          {/* Registration Extra Fields */}
-          {mode === "signup" && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                Full Name <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                  <UserIcon className="h-4 w-4" />
+          {mode === "login" ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    readOnly={isReadOnly}
+                    onFocus={() => setIsReadOnly(false)}
+                    onClick={() => setIsReadOnly(false)}
+                    autoComplete="off"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="Enter your email address"
+                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
+                  />
                 </div>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="e.g. John Doe"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-                />
               </div>
-            </div>
-          )}
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-              Email / Username <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                <Mail className="h-4 w-4" />
-              </div>
-              <input
-                type="text"
-                name="email"
-                required
-                readOnly={isReadOnly}
-                onFocus={() => setIsReadOnly(false)}
-                onClick={() => setIsReadOnly(false)}
-                autoComplete="off"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter email or username"
-                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-              Password <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                <Lock className="h-4 w-4" />
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                required
-                readOnly={isReadOnly}
-                onFocus={() => setIsReadOnly(false)}
-                onClick={() => setIsReadOnly(false)}
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder={mode === "login" ? "Enter your password" : "Create password (min. 6 chars)"}
-                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirm Password Field for Sign Up */}
-          {mode === "signup" && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                Confirm Password <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                  <Lock className="h-4 w-4" />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Password <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("forgot");
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  required
-                  readOnly={isReadOnly}
-                  onFocus={() => setIsReadOnly(false)}
-                  onClick={() => setIsReadOnly(false)}
-                  autoComplete="new-password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Re-enter your password"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    required
+                    readOnly={isReadOnly}
+                    onFocus={() => setIsReadOnly(false)}
+                    onClick={() => setIsReadOnly(false)}
+                    autoComplete="new-password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter your password"
+                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 text-center">
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Clicking <strong>Send Reset Link</strong> will deliver a password reset email directly to your registered HR email address in Outlook.
+              </p>
             </div>
           )}
 
@@ -232,45 +197,30 @@ export const LoginPage: React.FC = () => {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
               <>
-                <span>{mode === "login" ? "Sign In" : "Create Account"}</span>
+                <span>{mode === "login" ? "Sign In" : "Send Reset Link"}</span>
                 <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
               </>
             )}
           </button>
         </form>
 
-        {/* Bottom Switch Link */}
-        <div className="mt-5 text-center text-xs text-slate-500">
-          {mode === "login" ? (
-            <>
-              Don't have an account?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("signup");
-                  setError(null);
-                }}
-                className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline transition ml-1"
-              >
-                Create Account
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("login");
-                  setError(null);
-                }}
-                className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline transition ml-1"
-              >
-                Sign In
-              </button>
-            </>
-          )}
-        </div>
+        {/* Bottom Navigation */}
+        {mode === "forgot" && (
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError(null);
+                setSuccess(null);
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Sign In</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

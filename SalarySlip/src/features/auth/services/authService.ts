@@ -13,12 +13,6 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-}
-
 export interface UpdateProfilePayload {
   name: string;
   email: string;
@@ -41,13 +35,33 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+export interface ForgotPasswordResponse {
+  ok: boolean;
+  message: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  ok: boolean;
+  message: string;
+}
+
 export const authService = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     return apiClient.post<LoginResponse>("/auth/login", { email, password });
   },
 
-  register: async (payload: RegisterPayload): Promise<LoginResponse> => {
-    return apiClient.post<LoginResponse>("/auth/register", payload);
+  forgotPassword: async (email: string): Promise<ForgotPasswordResponse> => {
+    return apiClient.post<ForgotPasswordResponse>("/auth/forgot-password", { email });
+  },
+
+  resetPassword: async (payload: ResetPasswordPayload): Promise<ResetPasswordResponse> => {
+    return apiClient.post<ResetPasswordResponse>("/auth/reset-password", payload);
   },
 
   me: async (): Promise<{ user: AuthUser }> => {

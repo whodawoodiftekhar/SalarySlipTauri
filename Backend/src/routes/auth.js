@@ -1,7 +1,9 @@
 import express from "express";
 import mongoose from "mongoose";
-import { User, cleanupObsoleteData } from "../models/User.js";
+import crypto from "node:crypto";
+import { User, seedInitialHRUser, getActiveOutlookEmail } from "../models/User.js";
 import { generateToken, protect } from "../middleware/auth.js";
+import { sendPasswordResetEmail } from "../services/emailService.js";
 
 const router = express.Router();
 
@@ -13,68 +15,15 @@ function getInitials(name) {
 }
 
 /**
- * POST /api/auth/register
- * Registers a new HR admin account with name, email, and password.
+ * GET /api/auth/outlook-email
+ * Detects and returns the active Outlook email address on this machine.
  */
-router.post("/register", async (req, res) => {
+router.get("/outlook-email", async (_req, res) => {
   try {
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Full Name, Email, and Password are required.",
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Password must be at least 6 characters long.",
-      });
-    }
-
-    const cleanEmail = String(email).trim().toLowerCase();
-
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Service Unavailable",
-        message: "Cannot create account because MongoDB is offline. Please start local MongoDB.",
-      });
-    }
-
-    const existingUser = await User.findOne({ email: cleanEmail });
-    if (existingUser) {
-      return res.status(400).json({
-        error: "Account Exists",
-        message: "An HR account with this email address already exists. Please sign in instead.",
-      });
-    }
-
-    const passwordHash = await User.hashPassword(password);
-    const initials = getInitials(name);
-
-    const user = await User.create({
-      name: name.trim(),
-      email: cleanEmail,
-      passwordHash,
-      role: "HR",
-      initials,
-    });
-
-    const userPayload = {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      initials: user.initials,
-      role: user.role,
-    };
-
-    const token = generateToken(user);
-    return res.status(201).json({ token, user: userPayload });
+    const outlookEmail = await getActiveOutlookEmail();
+    res.json({ email: outlookEmail });
   } catch (err) {
-    console.error("[Auth Route] Register error:", err);
-    return res.status(500).json({ error: "Server Error", message: "Failed to create HR account." });
+    res.status(500).json({ error: "Failed to detect Outlook email", message: err.message });
   }
 });
 
@@ -87,10 +36,11 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Validation Error", message: "Email and password are required." });
+      return res.status(400).json({ error: "Validation Error", message: "Email address and password are required." });
     }
 
     const cleanEmail = String(email).trim().toLowerCase();
+    const cleanPass = String(password).trim();
 
     // Check DB connection
     if (mongoose.connection.readyState !== 1) {
@@ -100,17 +50,25 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Run cleanup of obsolete hardcoded data
-    await cleanupObsoleteData();
+    // Seed default user ONLY if DB is completely empty (0 users in total)
+    await seedInitialHRUser();
 
     let user = await User.findOne({ email: cleanEmail });
     if (!user) {
-      return res.status(401).json({ error: "Invalid Credentials", message: "Invalid email or password." });
+      // Fallback: If DB contains 1 user, match by user record
+      const count = await User.countDocuments();
+      if (count === 1) {
+        user = await User.findOne({});
+      }
     }
 
-    const isMatch = await user.comparePassword(password);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid Credentials", message: "Invalid email address or password." });
+    }
+
+    const isMatch = await user.comparePassword(cleanPass);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid Credentials", message: "Invalid email or password." });
+      return res.status(401).json({ error: "Invalid Credentials", message: "Invalid email address or password." });
     }
 
     const userPayload = {
@@ -126,6 +84,131 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error("[Auth Route] Login error:", err);
     return res.status(500).json({ error: "Server Error", message: "An error occurred during login." });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Automatically fetches registered HR user from MongoDB users collection
+ * and sends password reset token email via Outlook.
+ */
+router.post("/forgot-password", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "MongoDB is offline. Please start local MongoDB.",
+      });
+    }
+
+    let targetEmail = req.body?.email ? String(req.body.email).trim().toLowerCase() : "";
+    let user = null;
+
+    if (targetEmail) {
+      user = await User.findOne({ email: targetEmail });
+    }
+
+    // If no email supplied or not found by supplied email, fetch registered user from MongoDB
+    if (!user) {
+      user = await User.findOne({});
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User Not Found",
+        message: "No registered HR administrator account was found in the database.",
+      });
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = tokenExpiry;
+    await user.save();
+
+    const hostOrigin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
+
+    // Send email via Outlook service
+    await sendPasswordResetEmail({
+      toEmail: user.email,
+      resetToken,
+      hostOrigin,
+    });
+
+    return res.json({
+      ok: true,
+      message: "Password reset email sent to your registered account! Please check your Outlook inbox.",
+    });
+  } catch (err) {
+    console.error("[Auth Route] Forgot password error:", err);
+    return res.status(500).json({ error: "Server Error", message: "Failed to process password reset request." });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Resets user password using valid token.
+ */
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Please fill in all fields: reset token, new password, and confirm password.",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "New password and confirm password do not match.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Service Unavailable",
+        message: "MongoDB is offline. Please start local MongoDB.",
+      });
+    }
+
+    // Find user with matching, non-expired reset token
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Invalid or Expired Token",
+        message: "The password reset link is invalid or has expired. Please request a new password reset email.",
+      });
+    }
+
+    // Save new plain text password directly and clear token fields
+    user.password = String(newPassword).trim();
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    return res.json({
+      ok: true,
+      message: "Password reset successful! You can now log in with your new password.",
+    });
+  } catch (err) {
+    console.error("[Auth Route] Reset password error:", err);
+    return res.status(500).json({ error: "Server Error", message: "Failed to reset password." });
   }
 });
 
@@ -156,7 +239,7 @@ router.post("/update-profile", protect, async (req, res) => {
     if (!name || !email) {
       return res.status(400).json({
         error: "Validation Error",
-        message: "Full Name and Email / Username are required.",
+        message: "Full Name and Email Address are required.",
       });
     }
 
@@ -175,7 +258,7 @@ router.post("/update-profile", protect, async (req, res) => {
     if (existing) {
       return res.status(400).json({
         error: "Email Taken",
-        message: "This email address or username is already in use by another account.",
+        message: "This email address is already in use by another account.",
       });
     }
 
@@ -237,7 +320,7 @@ router.post("/change-password", protect, async (req, res) => {
       });
     }
 
-    // Fetch user with passwordHash
+    // Fetch user
     const dbUser = await User.findById(req.user._id);
     if (!dbUser) {
       return res.status(404).json({ error: "Not Found", message: "User account not found." });
@@ -254,8 +337,8 @@ router.post("/change-password", protect, async (req, res) => {
       }
     }
 
-    // Hash new password and save
-    dbUser.passwordHash = await User.hashPassword(newPassword);
+    // Save plain text password directly
+    dbUser.password = String(newPassword).trim();
     await dbUser.save();
 
     return res.json({

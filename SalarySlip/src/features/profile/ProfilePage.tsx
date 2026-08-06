@@ -217,19 +217,19 @@ export const ProfilePage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Email / Username <span className="text-rose-500">*</span>
+                  Email Address <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <Mail className="h-4 w-4" />
                   </div>
                   <input
-                    type="text"
+                    type="email"
                     name="email"
                     required
                     value={values.email}
                     onChange={handleChange}
-                    placeholder="Enter your email or username"
+                    placeholder="Enter your email address"
                     className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 transition focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
                   />
                 </div>

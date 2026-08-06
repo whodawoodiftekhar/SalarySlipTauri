@@ -140,9 +140,6 @@ export function Sidebar() {
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <b className="block truncate text-[13px] text-slate-900">{shownName}</b>
-                <small className="block truncate text-[11px] text-slate-500">
-                  {shownEmail}
-                </small>
               </div>
             )}
           </div>

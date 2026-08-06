@@ -13,6 +13,7 @@ import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AppLayout } from "@/layout/AppLayout";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 
 export default function App() {
@@ -22,8 +23,9 @@ export default function App() {
         <SettingsProvider>
           <EmployeeProvider>
             <Routes>
-              {/* Unprotected Public Auth Route */}
+              {/* Unprotected Public Auth Routes */}
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Protected App Routes */}
               <Route element={<ProtectedRoute />}>
