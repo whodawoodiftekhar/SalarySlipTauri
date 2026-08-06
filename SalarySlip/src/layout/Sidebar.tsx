@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Mail, LogOut, AlertTriangle, X } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, Mail, LogOut, X } from "lucide-react";
 import { MailAccountModal } from "@/features/settings/components/MailAccountModal";
 import { useAuth } from "@/features/auth/AuthContext";
 import {
