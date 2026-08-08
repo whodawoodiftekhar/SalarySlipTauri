@@ -60,9 +60,9 @@ export function SendOutlookEmailModal({
   // Backend/src/lib/payslipPayload.js; the password is shared out of band.
   const [emailBodyText, setEmailBodyText] = useState(`Dear ${emp.name},
 
-Please find the attached salary slip for the month of ${period}.
+This is a computer generated salary slip and does not require signature. For any discrepancies, please contact the HR Department.
 
-Note: ${slipDefaults.footNote || "This is a computer generated salary slip and does not require signature,For any discrepancies, please contact the HR Department ."}
+Note: ${slipDefaults.footNote || "This is a computer generated salary slip and does not require signature."}
 
 Best regards,
 Human Resourse

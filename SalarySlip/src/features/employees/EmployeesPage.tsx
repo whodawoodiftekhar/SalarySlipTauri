@@ -6,6 +6,7 @@ import { EmptyState, ErrorState } from "@/shared/components/feedback/ErrorState"
 import { LoadingRows } from "@/shared/components/feedback/LoadingState";
 import { Button } from "@/shared/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/Card";
+import { Pagination } from "@/shared/components/ui/Pagination";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import type { RosterEntry } from "@/shared/types";
 import { EditEmployeeModal } from "./components/EditEmployeeModal";
@@ -24,6 +25,8 @@ export default function EmployeesPage() {
   const [editingEmployee, setEditingEmployee] = useState<RosterEntry | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [actionError, setActionError] = useState<Error | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const safeRoster = (roster || []).filter((e): e is RosterEntry => Boolean(e && e.id));
 
@@ -49,6 +52,13 @@ export default function EmployeesPage() {
       .includes((q || "").toLowerCase());
     return matchesDept && matchesQ;
   });
+
+  // Paginated slice of filtered rows
+  const totalFiltered = rows.length;
+  const paginatedRows = rows.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleSaveEdit = async (patch: UpdateEmployeeDto) => {
     if (!editingEmployee) return;
@@ -87,7 +97,7 @@ export default function EmployeesPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <SearchInput
             value={q}
-            onChange={setQ}
+            onChange={(v) => { setQ(v); setCurrentPage(1); }}
             placeholder="Search name, code, department…"
           />
           <Button
@@ -116,7 +126,7 @@ export default function EmployeesPage() {
           return (
             <button
               key={d}
-              onClick={() => setSelectedDept(d)}
+              onClick={() => { setSelectedDept(d); setCurrentPage(1); }}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold transition-all cursor-pointer border ${
                 active
                   ? "bg-ink text-white border-ink shadow-sm"
@@ -157,13 +167,23 @@ export default function EmployeesPage() {
           }
         />
       ) : (
-        <EmployeeTable
-          rows={rows}
-          busy={saving}
-          onSelect={(e) => navigate(`/payroll/${e.id}`)}
-          onEdit={(e) => setEditingEmployee(e)}
-          onDelete={handleDelete}
-        />
+        <>
+          <EmployeeTable
+            rows={paginatedRows}
+            busy={saving}
+            onSelect={(e) => navigate(`/payroll/${e.id}`)}
+            onEdit={(e) => setEditingEmployee(e)}
+            onDelete={handleDelete}
+          />
+          <Pagination
+            totalItems={totalFiltered}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 25, 50]}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
 
       {editingEmployee && (

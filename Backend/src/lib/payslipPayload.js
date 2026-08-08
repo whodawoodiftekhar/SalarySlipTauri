@@ -78,7 +78,7 @@ export function buildPayslipPdfInput({ payslip, employee = {}, settings = {}, em
 export function payslipEmailBody({ employeeName, period, companyName, footNote }) {
   return `Dear ${employeeName || "Employee"},
 
-Please find the attached salary slip for the month of ${period}.
+This is a computer generated salary slip and does not require signature. For any discrepancies, please contact the HR Department.
 
 Note: ${footNote || "This is a computer generated salary slip and does not require signature."}
 

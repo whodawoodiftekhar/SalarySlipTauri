@@ -111,6 +111,14 @@ export default function AddEmployeePage() {
         if (val !== undefined && val !== "") {
           obj[codeKey] = num(val);
         }
+        // makeStructure reads e.basic for the Basic Salary component;
+        // ensure the "basic" key is always populated regardless of catalog code
+        const isBasic =
+          codeKey === "basic" ||
+          (item.name && item.name.toLowerCase().includes("basic"));
+        if (isBasic && val !== undefined && val !== "") {
+          obj["basic"] = num(val);
+        }
       });
     } else {
       Object.entries(salaryInputs).forEach(([k, v]) => {

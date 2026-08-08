@@ -53,14 +53,7 @@ router.post("/login", async (req, res) => {
     // Seed default user ONLY if DB is completely empty (0 users in total)
     await seedInitialHRUser();
 
-    let user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      // Fallback: If DB contains 1 user, match by user record
-      const count = await User.countDocuments();
-      if (count === 1) {
-        user = await User.findOne({});
-      }
-    }
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid Credentials", message: "Invalid email address or password." });
