@@ -1,4 +1,4 @@
-import { useState, ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 
 /**
  * Common custom form state hook for handling unified form input state and submissions.

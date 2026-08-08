@@ -6,7 +6,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
   updateProfile: (name: string, email: string) => Promise<void>;
   logout: () => void;
   setUser: React.Dispatch<React.SetStateAction<AuthUser | null>>;
@@ -60,13 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(res.user);
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    const res = await authService.register({ name, email, password });
-    sessionStorage.setItem(TOKEN_KEY, res.token);
-    sessionStorage.setItem(USER_KEY, JSON.stringify(res.user));
-    setUser(res.user);
-  };
-
   const updateProfile = async (name: string, email: string) => {
     const res = await authService.updateProfile({ name, email });
     sessionStorage.setItem(USER_KEY, JSON.stringify(res.user));
@@ -88,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
-        register,
         updateProfile,
         logout,
         setUser,
