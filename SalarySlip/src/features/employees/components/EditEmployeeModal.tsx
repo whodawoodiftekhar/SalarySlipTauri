@@ -24,6 +24,7 @@ export function EditEmployeeModal({
   const { departments } = useSettings();
 
   const [f, setF] = useState({
+    id: employee.id ?? "",
     name: employee.name ?? "",
     email: employee.email ?? "",
     dept: employee.dept ?? departments[0] ?? "",
@@ -100,11 +101,12 @@ export function EditEmployeeModal({
     }
   };
 
-  const valid = Boolean(f.name.trim() && f.role.trim() && f.email.trim());
+  const valid = Boolean(f.id.trim() && f.name.trim() && f.role.trim() && f.email.trim());
 
   const handleSave = async () => {
     setSavingStructure(true);
     try {
+      const targetId = f.id.trim() || employee.id;
       // Find basic salary value from components if present
       const basicComp = structureComponents.find(
         (c) =>
@@ -116,6 +118,7 @@ export function EditEmployeeModal({
 
       // Save employee profile fields
       await onSave({
+        id: targetId,
         name: f.name.trim(),
         email: f.email.trim(),
         dept: f.dept,
@@ -146,7 +149,7 @@ export function EditEmployeeModal({
           isBasic: Boolean(c.isBasic),
         }));
         await employeeService.updateSalaryStructure(
-          employee.id,
+          targetId,
           formattedComponents,
         );
       }
@@ -211,11 +214,12 @@ export function EditEmployeeModal({
                   placeholder="e.g. priya.sharma@comm-it.com"
                 />
               </Field>
-              <Field label="Employee Code">
+              <Field label="Employee Code *">
                 <input
-                  className={`${FIELD_INPUT} bg-paper text-ash cursor-not-allowed`}
-                  value={employee.id}
-                  disabled
+                  className={FIELD_INPUT}
+                  value={f.id}
+                  onChange={set("id")}
+                  placeholder="e.g. C11020"
                 />
               </Field>
               <Field label="Department">

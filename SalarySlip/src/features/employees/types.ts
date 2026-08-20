@@ -3,8 +3,8 @@ import type { Employee } from "@/shared/types";
 /** Request body for creating an employee. */
 export type NewEmployeeDto = Employee;
 
-/** Partial update — the code (`id`) itself is not editable. */
-export type UpdateEmployeeDto = Partial<Omit<Employee, "id">>;
+/** Partial update — employee code (`id`) and other profile fields. */
+export type UpdateEmployeeDto = Partial<Employee>;
 
 export interface EmployeeFormState {
   name: string;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Employee } from "../models/Employee.js";
 import { Payslip } from "../models/Payslip.js";
+import { PayPeriodDays } from "../models/PayPeriodDays.js";
 import { CATALOG_SORT, SalaryComponent } from "../models/SalaryComponent.js";
 import { SalaryStructure } from "../models/SalaryStructure.js";
 import { makeStructure, num } from "../lib/calc.js";
@@ -111,20 +112,45 @@ router.post("/", async (req, res) => {
 
 /** PUT /api/employees/:id — update the employee record and its structure */
 router.put("/:id", async (req, res) => {
-  // read first: the sync below only acts on amounts this edit actually changed
-  const before = await Employee.findOne({ id: req.params.id }).lean();
-  if (!before) return res.status(404).json({ message: "Employee not found" });
+  try {
+    const oldId = req.params.id;
+    // read first: the sync below only acts on amounts this edit actually changed
+    const before = await Employee.findOne({ id: oldId }).lean();
+    if (!before) return res.status(404).json({ message: "Employee not found" });
 
-  const employee = await Employee.findOneAndUpdate(
-    { id: req.params.id },
-    req.body,
-    { returnDocument: "after", runValidators: true },
-  );
+    const newId = req.body?.id ? String(req.body.id).trim() : undefined;
+    if (newId && newId !== oldId) {
+      const conflict = await Employee.findOne({ id: newId });
+      if (conflict) {
+        return res.status(400).json({
+          message: `Employee Code "${newId}" already exists. Please choose a unique Employee Code.`,
+        });
+      }
+    }
 
-  if (!employee) return res.status(404).json({ message: "Employee not found" });
+    const employee = await Employee.findOneAndUpdate(
+      { id: oldId },
+      req.body,
+      { returnDocument: "after", runValidators: true },
+    );
 
-  await syncStructureToProfile(employee.id, req.body, before);
-  res.json(employee);
+    if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+    // If employee code changed, cascade the new ID to SalaryStructure, Payslips, and PayPeriodDays
+    if (newId && newId !== oldId) {
+      await Promise.all([
+        SalaryStructure.updateMany({ employeeId: oldId }, { $set: { employeeId: newId } }),
+        Payslip.updateMany({ employeeId: oldId }, { $set: { employeeId: newId } }),
+        PayPeriodDays.updateMany({ employeeId: oldId }, { $set: { employeeId: newId } }),
+      ]);
+    }
+
+    await syncStructureToProfile(employee.id, req.body, before);
+    res.json(employee);
+  } catch (err) {
+    console.error("Error updating employee:", err);
+    res.status(500).json({ message: err.message || "Failed to update employee" });
+  }
 });
 
 /** DELETE /api/employees/:id — removes their structure and payslips too */

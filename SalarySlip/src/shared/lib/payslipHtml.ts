@@ -1,5 +1,5 @@
 import type { Employee, PayrollResult, CompanyProfile, SlipDefaults, ComputedComponent } from "@/shared/types";
-import { inr } from "./format";
+import { inr, toWords } from "./format";
 import { LOGO } from "./branding";
 
 export function generateStyledPayslipHtml({
@@ -220,9 +220,9 @@ export function generateStyledPayslipHtml({
           </tr>
           <tr class="section-header">
             <td style="width: 30%;">Earnings</td>
-            <td style="width: 20%; text-align: right;">Amount (In Rs.)</td>
+            <td style="width: 20%; text-align: right;">Amount (₹)</td>
             <td style="width: 30%;">Deductions</td>
-            <td style="width: 20%; text-align: right;">Amount (In Rs.)</td>
+            <td style="width: 20%; text-align: right;">Amount (₹)</td>
           </tr>
 
           <!-- Salary Component Rows -->
@@ -232,12 +232,6 @@ export function generateStyledPayslipHtml({
           <tr>
             <td style="font-weight: bold;">Total Earnings (A)</td>
             <td style="text-align: right; font-family: monospace; font-weight: bold;">${inr(res.gross)}</td>
-            <td style="background-color: #f9fafb;"></td>
-            <td style="background-color: #f9fafb;"></td>
-          </tr>
-          <tr>
-            <td style="background-color: #f9fafb;"></td>
-            <td style="background-color: #f9fafb;"></td>
             <td style="font-weight: bold;">Total Deductions (B)</td>
             <td style="text-align: right; font-family: monospace; font-weight: bold;">${inr(res.totalDeductions)}</td>
           </tr>
@@ -246,6 +240,10 @@ export function generateStyledPayslipHtml({
             <td style="background-color: #f9fafb;"></td>
             <td style="font-weight: 800; font-size: 13px;">Net Salary</td>
             <td style="text-align: right; font-family: monospace; font-weight: 800; font-size: 13px;">${inr(res.net)}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 800; font-size: 13px;">Net Salary in Words</td>
+            <td colspan="3" style="font-weight: bold; font-size: 12px;">${toWords(res.net)}</td>
           </tr>
         </tbody>
       </table>

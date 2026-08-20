@@ -179,6 +179,28 @@ export function createPayslipPdfBuffer({
         : {};
 
       const doc = new PDFDocument({ margin: 30, size: "A4", ...encryption });
+
+      let fontRegular = "Helvetica";
+      let fontBold = "Helvetica-Bold";
+
+      const candidateFonts = [
+        { regular: "C:/Windows/Fonts/arial.ttf", bold: "C:/Windows/Fonts/arialbd.ttf" },
+        { regular: "C:/Windows/Fonts/calibri.ttf", bold: "C:/Windows/Fonts/calibrib.ttf" },
+        { regular: "C:/Windows/Fonts/segoeui.ttf", bold: "C:/Windows/Fonts/segoeuib.ttf" },
+      ];
+
+      for (const cf of candidateFonts) {
+        try {
+          if (fs.existsSync(cf.regular) && fs.existsSync(cf.bold)) {
+            doc.registerFont("AppFont", cf.regular);
+            doc.registerFont("AppFont-Bold", cf.bold);
+            fontRegular = "AppFont";
+            fontBold = "AppFont-Bold";
+            break;
+          }
+        } catch {}
+      }
+
       const buffers = [];
 
       doc.on("data", (chunk) => buffers.push(chunk));
@@ -192,7 +214,7 @@ export function createPayslipPdfBuffer({
       if (wmText) {
         doc.save();
         doc.rotate(-30, { origin: [297, 260] });
-        doc.fillColor("#000000").fillOpacity(0.07).fontSize(75).font("Helvetica-Bold");
+        doc.fillColor("#000000").fillOpacity(0.07).fontSize(75).font(fontBold);
         doc.text(wmText, 97, 235, { width: 400, align: "center" });
         doc.restore();
       }
@@ -210,28 +232,31 @@ export function createPayslipPdfBuffer({
           doc.image(logoSource, 35, 45, { fit: [110, 57], align: "center", valign: "center" });
         } catch (imgErr) {
           console.error("[PDF GENERATOR LOGO ERROR]:", imgErr?.stack || imgErr);
-          doc.fillColor("#0078D4").fontSize(18).font("Helvetica-Bold").text("COMM-IT", 45, 55);
-          doc.fillColor("#666666").fontSize(7).font("Helvetica").text("commitment to quality", 45, 76);
+          doc.fillColor("#0078D4").fontSize(18).font(fontBold).text("COMM-IT", 45, 55);
+          doc.fillColor("#666666").fontSize(7).font(fontRegular).text("commitment to quality", 45, 76);
         }
       } else {
-        doc.fillColor("#0078D4").fontSize(18).font("Helvetica-Bold").text("COMM-IT", 45, 55);
-        doc.fillColor("#666666").fontSize(7).font("Helvetica").text("commitment to quality", 45, 76);
+        doc.fillColor("#0078D4").fontSize(18).font(fontBold).text("COMM-IT", 45, 55);
+        doc.fillColor("#666666").fontSize(7).font(fontRegular).text("commitment to quality", 45, 76);
       }
 
       // Horizontal Divider Line separating Company Info from Pay Slip Banner (at y = 93)
       doc.moveTo(150, 93).lineTo(565, 93).stroke();
 
       // Top Right Section: Company Legal Name & Address
-      doc.fillColor(darkColor).fontSize(10.5).font("Helvetica-Bold").text(companyName || "COMM-IT INDIA PVT. LTD.", 160, 38);
-      doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(
-        companyAddress || "S-113, First Floor, Salcon Aurum, Jasola District Centre\nOpposite Omax Square, New Delhi 110025",
+      doc.fillColor(darkColor).fontSize(10.5).font(fontBold).text(companyName || "COMM-IT INDIA PVT. LTD.", 160, 38);
+      const formattedAddress = Array.isArray(companyAddress)
+        ? companyAddress.filter(Boolean).join("\n")
+        : (companyAddress || "S-113, First Floor, Salcon Aurum, Jasola District Centre\nOpposite Omax Square, New Delhi 110025");
+      doc.fillColor("#444444").fontSize(8.5).font(fontRegular).text(
+        formattedAddress,
         160,
         52
       );
 
       // Bottom Right Section: Pay Slip Banner (y = 93 to 117)
       doc.rect(150, 93, 415, 24).fillAndStroke("#F9FAFB", "#333333");
-      doc.fillColor(darkColor).fontSize(10.5).font("Helvetica-Bold").text(`Pay Slip - ${period || 'Jul 2026'}`, 150, 100, { width: 415, align: "center" });
+      doc.fillColor(darkColor).fontSize(10.5).font(fontBold).text(`Pay Slip - ${period || 'Jul 2026'}`, 150, 100, { width: 415, align: "center" });
 
       // Employee Metadata Table Grid (starts at y = 117)
       const startY = 117;
@@ -252,17 +277,17 @@ export function createPayslipPdfBuffer({
       metaFields.forEach((row, i) => {
         const y = startY + i * rowH;
         doc.rect(30, y, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[0], 35, y + 4, { width: 115, lineBreak: false });
+        doc.fillColor("#444444").fontSize(8.5).font(fontRegular).text(row[0], 35, y + 4, { width: 115, lineBreak: false });
 
         const v1 = String(row[1] || "");
         const v1Font = v1.length > 24 ? 7 : v1.length > 18 ? 7.5 : 8.5;
-        doc.fillColor(darkColor).fontSize(v1Font).font("Helvetica-Bold").text(v1, 155, y + 4, { width: 140, lineBreak: false });
+        doc.fillColor(darkColor).fontSize(v1Font).font(fontBold).text(v1, 155, y + 4, { width: 140, lineBreak: false });
 
-        doc.fillColor("#444444").fontSize(8.5).font("Helvetica").text(row[2], 305, y + 4, { width: 115, lineBreak: false });
+        doc.fillColor("#444444").fontSize(8.5).font(fontRegular).text(row[2], 305, y + 4, { width: 115, lineBreak: false });
 
         const v2 = String(row[3] || "");
         const v2Font = v2.length > 24 ? 7 : v2.length > 18 ? 7.5 : 8.5;
-        doc.fillColor(darkColor).fontSize(v2Font).font("Helvetica-Bold").text(v2, 425, y + 4, { width: 135, lineBreak: false });
+        doc.fillColor(darkColor).fontSize(v2Font).font(fontBold).text(v2, 425, y + 4, { width: 135, lineBreak: false });
       });
 
       // Vertical Grid Lines for Metadata Table
@@ -273,32 +298,20 @@ export function createPayslipPdfBuffer({
       // COMPONENTS Section Banner
       const compY = startY + metaTotalH;
       doc.rect(30, compY, 535, 20).fillAndStroke("#E5E7EB", "#333333");
-      doc.fillColor(darkColor).fontSize(10).font("Helvetica-Bold").text("COMPONENTS", 30, compY + 5, { align: "center" });
+      doc.fillColor(darkColor).fontSize(10).font(fontBold).text("COMPONENTS", 30, compY + 5, { align: "center" });
 
-      // Table Header Row: Earnings | Amount (In Rs.) | Deductions | Amount (In Rs.)
+      // Table Header Row: Earnings (30%) | Amount (₹) (20%) | Deductions (30%) | Amount (₹) (20%)
       const headerY = compY + 20;
       doc.rect(30, headerY, 535, 20).fillAndStroke("#F9FAFB", "#333333");
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold");
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold);
       doc.text("Earnings", 35, headerY + 5);
-      doc.text("Amount (In Rs.)", 175, headerY + 5, { width: 100, align: "right" });
-      doc.text("Deductions", 290, headerY + 5);
-      doc.text("Amount (In Rs.)", 440, headerY + 5, { width: 115, align: "right" });
+      doc.text("Amount (₹)", 195, headerY + 5, { width: 97, align: "right" });
+      doc.text("Deductions", 302, headerY + 5);
+      doc.text("Amount (₹)", 463, headerY + 5, { width: 97, align: "right" });
 
-      // Fallback default rows if arrays are empty
-      const defaultEarnings = [
-        { name: "Basic Salary", amount: 10000 },
-        { name: "HRA", amount: 0 },
-        { name: "Onsite Incentive", amount: 0 },
-        { name: "Medical Reimbursement", amount: 0 },
-        { name: "New earning", amount: 0 },
-      ];
-      const defaultDeductions = [
-        { name: "TDS", amount: 1500 },
-      ];
-
-      const eList = Array.isArray(earnings) && earnings.length ? earnings.filter(item => item && item.name) : defaultEarnings;
-      const dList = Array.isArray(deductions) && deductions.length ? deductions.filter(item => item && item.name) : defaultDeductions;
-      const rowCount = Math.max(eList.length, dList.length, 5);
+      const eList = Array.isArray(earnings) ? earnings.filter(item => item && item.name) : [];
+      const dList = Array.isArray(deductions) ? deductions.filter(item => item && item.name) : [];
+      const rowCount = Math.max(eList.length, dList.length, 1);
 
       let tableY = headerY + 20;
 
@@ -312,58 +325,58 @@ export function createPayslipPdfBuffer({
         if (e) {
           const eName = String(e.name || "");
           const eFont = eName.length > 28 ? 7 : eName.length > 22 ? 7.5 : 8.5;
-          doc.fillColor(darkColor).fontSize(eFont).font("Helvetica").text(eName, 35, y + 4, { width: 135, lineBreak: false });
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(e.amount), 175, y + 4, { width: 100, align: "right", lineBreak: false });
+          doc.fillColor(darkColor).fontSize(eFont).font(fontRegular).text(eName, 35, y + 4, { width: 150, lineBreak: false });
+          doc.fillColor(darkColor).fontSize(8.5).font(fontRegular).text(formatMoney(e.amount), 195, y + 4, { width: 97, align: "right", lineBreak: false });
         }
         if (d) {
           const dName = String(d.name || "");
           const dFont = dName.length > 28 ? 7 : dName.length > 22 ? 7.5 : 8.5;
-          doc.fillColor(darkColor).fontSize(dFont).font("Helvetica").text(dName, 290, y + 4, { width: 140, lineBreak: false });
-          doc.fillColor(darkColor).fontSize(8.5).font("Helvetica").text(formatMoney(d.amount), 440, y + 4, { width: 115, align: "right", lineBreak: false });
+          doc.fillColor(darkColor).fontSize(dFont).font(fontRegular).text(dName, 302, y + 4, { width: 150, lineBreak: false });
+          doc.fillColor(darkColor).fontSize(8.5).font(fontRegular).text(formatMoney(d.amount), 463, y + 4, { width: 97, align: "right", lineBreak: false });
         }
       }
 
       // Vertical Grid Lines for Components Table (Header + Component Rows)
       const compRowsH = rowCount * rowH + 20;
-      doc.moveTo(280, headerY).lineTo(280, headerY + compRowsH).stroke();
-      doc.moveTo(435, headerY).lineTo(435, headerY + compRowsH).stroke();
+      doc.moveTo(190, headerY).lineTo(190, headerY + compRowsH).stroke();
+      doc.moveTo(297, headerY).lineTo(297, headerY + compRowsH).stroke();
+      doc.moveTo(458, headerY).lineTo(458, headerY + compRowsH).stroke();
 
-      // Totals Rows: Total Earnings (A) & Total Deductions (B) & Net Salary
-      const totalGross = safeNum(gross) || 10000;
-      const totalDed = safeNum(totalDeductions) || 1500;
-      const netVal = safeNum(net) || safeNum(netPay) || (totalGross - totalDed);
+      // Totals Rows: Total Earnings (A) & Total Deductions (B) on same row, Net Salary below on right, Net Salary in Words below
+      const totalGross = safeNum(gross);
+      const totalDed = safeNum(totalDeductions);
+      const netVal = net != null ? safeNum(net) : (netPay != null ? safeNum(netPay) : (totalGross - totalDed));
 
       let totalsY = tableY + rowCount * rowH;
 
-      // Row: Total Earnings (A)
+      // Row 1: Total Earnings (A) [Left 30%+20%] & Total Deductions (B) [Right 30%+20%]
       doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text("Total Earnings (A)", 35, totalsY + 4);
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(formatMoney(totalGross), 175, totalsY + 4, { width: 100, align: "right" });
-      doc.moveTo(280, totalsY).lineTo(280, totalsY + rowH).stroke();
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text("Total Earnings (A)", 35, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text(formatMoney(totalGross), 195, totalsY + 4, { width: 97, align: "right" });
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text("Total Deductions (B)", 302, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text(formatMoney(totalDed), 463, totalsY + 4, { width: 97, align: "right" });
+      doc.moveTo(190, totalsY).lineTo(190, totalsY + rowH).stroke();
+      doc.moveTo(297, totalsY).lineTo(297, totalsY + rowH).stroke();
+      doc.moveTo(458, totalsY).lineTo(458, totalsY + rowH).stroke();
 
       totalsY += rowH;
-      // Row: Total Deductions (B)
+      // Row 2: Net Salary (on the right half)
       doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text("Total Deductions (B)", 290, totalsY + 4);
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(formatMoney(totalDed), 440, totalsY + 4, { width: 115, align: "right" });
-      doc.moveTo(435, totalsY).lineTo(435, totalsY + rowH).stroke();
+      doc.fillColor(darkColor).fontSize(9).font(fontBold).text("Net Salary", 302, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(9).font(fontBold).text(formatMoney(netVal), 463, totalsY + 4, { width: 97, align: "right" });
+      doc.moveTo(190, totalsY).lineTo(190, totalsY + rowH).stroke();
+      doc.moveTo(297, totalsY).lineTo(297, totalsY + rowH).stroke();
+      doc.moveTo(458, totalsY).lineTo(458, totalsY + rowH).stroke();
 
       totalsY += rowH;
-      // Row: Net Salary
+      // Row 3: Net Salary in Words
       doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-      doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text("Net Salary", 290, totalsY + 4);
-      doc.fillColor(darkColor).fontSize(9).font("Helvetica-Bold").text(formatMoney(netVal), 440, totalsY + 4, { width: 115, align: "right" });
-      doc.moveTo(435, totalsY).lineTo(435, totalsY + rowH).stroke();
-
-      totalsY += rowH;
-      // Row: In Words
-      doc.rect(30, totalsY, 535, rowH).strokeColor("#333333").lineWidth(0.5).stroke();
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text("In Words", 35, totalsY + 4);
-      doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold").text(numberToWords(netVal), 155, totalsY + 4, { width: 405, lineBreak: false });
-      doc.moveTo(150, totalsY).lineTo(150, totalsY + rowH).stroke();
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text("Net Salary in Words", 35, totalsY + 4);
+      doc.fillColor(darkColor).fontSize(8.5).font(fontBold).text(numberToWords(netVal), 195, totalsY + 4, { width: 365, lineBreak: false });
+      doc.moveTo(190, totalsY).lineTo(190, totalsY + rowH).stroke();
 
       // Footnote at bottom, centred across the table's full width (x = 30 to 565)
-      doc.fillColor("#444444").fontSize(8).font("Helvetica").text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25, { width: 535, align: "center" });
+      doc.fillColor("#444444").fontSize(8).font(fontRegular).text("This is a computer generated salary slip and does not require signature", 30, totalsY + 25, { width: 535, align: "center" });
 
       doc.end();
     } catch (err) {

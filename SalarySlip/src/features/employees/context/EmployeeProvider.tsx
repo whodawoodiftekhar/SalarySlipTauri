@@ -108,7 +108,11 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
       setSaving(true);
       try {
         const employee = await employeeService.update(id, patch);
-        setCreated((xs) => [...xs.filter((e) => e.id !== id), employee]);
+        const newId = employee.id || patch.id || id;
+        setCreated((xs) => [...xs.filter((e) => e.id !== id && e.id !== newId), employee]);
+        if (newId !== id) {
+          setRemoved((xs) => [...xs.filter((item) => item !== newId), id]);
+        }
         refetch();
         return employee;
       } finally {
