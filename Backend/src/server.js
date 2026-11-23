@@ -32,6 +32,7 @@ import mailAccountRoutes from "./routes/mailAccount.js";
 import payrollRoutes from "./routes/payroll.js";
 import payrunRoutes from "./routes/payrun.js";
 import settingsRoutes from "./routes/settings.js";
+import databaseRoutes from "./routes/database.js";
 
 const PORT = process.env.PORT ?? 5000;
 const MONGODB_URI =
@@ -126,6 +127,7 @@ app.use("/api/salary-components", checkDbConnection, catalogRoutes);
 // mounted before /api/payroll so the more specific prefix wins
 app.use("/api/payroll/run", checkDbConnection, payrunRoutes);
 app.use("/api/payroll", checkDbConnection, payrollRoutes);
+app.use("/api/database", checkDbConnection, databaseRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -60,7 +60,7 @@ export function SendOutlookEmailModal({
   // Backend/src/lib/payslipPayload.js; the password is shared out of band.
   const [emailBodyText, setEmailBodyText] = useState(`Dear ${emp.name},
 
-Your salary slip for ${period} has been generated successfully and is now available for your reference.
+Please find the attached salary slip for the month of ${period}. For any discrepancies, please contact the HR department.
 
 Note: This is a system generated email.
 

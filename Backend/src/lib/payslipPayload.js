@@ -78,7 +78,7 @@ export function buildPayslipPdfInput({ payslip, employee = {}, settings = {}, em
 export function payslipEmailBody({ employeeName, period, companyName, footNote }) {
   return `Dear ${employeeName || "Employee"},
 
-Your salary slip for ${period || "Aug 2026"} has been generated successfully and is now available for your reference.
+Please find the attached salary slip for the month of ${period || "Aug 2026"}. For any discrepancies, please contact the HR department.
 
 Note: ${footNote || "This is a system generated email."}
 

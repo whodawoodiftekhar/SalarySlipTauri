@@ -1,5 +1,6 @@
 import {
   Building2,
+  Database,
   FileText,
   LayoutDashboard,
   PlayCircle,
@@ -62,6 +63,14 @@ export const NAV: NavItem[] = [
     path: "/settings",
     colorClass: "text-sky-600",
     bgClass: "bg-sky-50",
+  },
+  {
+    id: "db-configure",
+    label: "DB Configure",
+    icon: Database,
+    path: "/db-configure",
+    colorClass: "text-cyan-600",
+    bgClass: "bg-cyan-50",
   },
   {
     id: "profile",

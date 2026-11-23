@@ -37,4 +37,15 @@ export const employeeService = {
     const res = await apiClient.get<{ code: string }>("/employees/next-code");
     return res.code;
   },
+
+  /** Bulk import / upsert employee records from parsed Excel data */
+  async bulkImport(employees: any[]): Promise<{
+    success: boolean;
+    total: number;
+    created: number;
+    updated: number;
+    errors?: Array<{ id: string; error: string }>;
+  }> {
+    return apiClient.post("/employees/bulk-import", { employees });
+  },
 };

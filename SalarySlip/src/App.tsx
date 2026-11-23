@@ -9,6 +9,7 @@ import PayRunPage from "@/features/payrun/PayRunPage";
 import PayslipsPage from "@/features/payslips/PayslipsPage";
 import { SettingsProvider } from "@/features/settings/context/SettingsProvider";
 import CompanySetupPage from "@/features/settings/pages/CompanySetupPage";
+import DbConfigurePage from "@/features/dbConfigure/DbConfigurePage";
 import { ProfilePage } from "@/features/profile/ProfilePage";
 import { AppLayout } from "@/layout/AppLayout";
 import { AuthProvider } from "@/features/auth/AuthContext";
@@ -43,6 +44,7 @@ export default function App() {
                   <Route path="payslips" element={<PayslipsPage />} />
                   <Route path="components" element={<ComponentsPage />} />
                   <Route path="settings" element={<CompanySetupPage />} />
+                  <Route path="db-configure" element={<DbConfigurePage />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

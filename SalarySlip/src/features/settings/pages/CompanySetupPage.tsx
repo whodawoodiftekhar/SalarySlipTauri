@@ -49,23 +49,16 @@ const INPUT_CLASS =
 export default function CompanySetupPage() {
   const { company, slipDefaults, refetchSettings } = useSettings();
 
-  const [name, setName] = useState(company.name || "COMM-IT");
-  const [legalName, setLegalName] = useState(
-    company.legalName || "COMM-IT INDIA PVT. LTD."
-  );
+  const [name, setName] = useState(company.name || "");
+  const [legalName, setLegalName] = useState(company.legalName || "");
   const [city, setCity] = useState(
-    company.city || (company.addressShort ? company.addressShort.replace(/\s*\d{5,6}$/, '') : "New Delhi")
+    company.city || (company.addressShort ? company.addressShort.replace(/\s*\d{5,6}$/, '') : "")
   );
   const [pincode, setPincode] = useState(
-    company.pincode || (company.addressShort ? (company.addressShort.match(/\d{5,6}$/)?.[0] || "") : "110025")
+    company.pincode || (company.addressShort ? (company.addressShort.match(/\d{5,6}$/)?.[0] || "") : "")
   );
-  const [line1, setLine1] = useState(
-    company.addressLines?.[0] ||
-      "S-113, First Floor, Salcon Aurum, Jasola District Centre"
-  );
-  const [line2, setLine2] = useState(
-    company.addressLines?.[1] || "Opposite Omax Square, New Delhi 110025"
-  );
+  const [line1, setLine1] = useState(company.addressLines?.[0] || "");
+  const [line2, setLine2] = useState(company.addressLines?.[1] || "");
   const [logoUrl, setLogoUrl] = useState(company.logoUrl || "");
   const [watermarkText, setWatermarkText] = useState(
     company.watermarkText ?? ""

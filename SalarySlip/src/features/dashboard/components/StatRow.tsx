@@ -59,26 +59,26 @@ export function StatRow({ roster }: { roster: RosterEntry[] }) {
   ];
 
   return (
-    <div className="mb-6 grid grid-cols-4 gap-4 max-tab:grid-cols-2 max-mob:grid-cols-1">
+    <div className="grid grid-cols-4 gap-4 max-tab:grid-cols-2 max-mob:grid-cols-1">
       {stats.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden rounded-2xl border border-line bg-white p-4.5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+          className="relative overflow-hidden rounded-xl border border-line bg-white px-4 py-2.5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[12px] font-semibold tracking-wide text-ash uppercase">
+            <span className="text-[11.5px] font-semibold tracking-wide text-ash uppercase">
               {s.label}
             </span>
-            <div className={`grid h-9 w-9 place-items-center rounded-xl ${s.iconBg} ${s.iconColor}`}>
-              <s.icon size={18} />
+            <div className={`grid h-7 w-7 place-items-center rounded-lg ${s.iconBg} ${s.iconColor}`}>
+              <s.icon size={15} />
             </div>
           </div>
 
-          <div className="mt-2.5">
-            <b className="text-[22px] font-extrabold tracking-tight text-ink tabular-nums block">
+          <div className="mt-1">
+            <b className="text-[19px] font-extrabold tracking-tight text-ink tabular-nums block leading-tight">
               {s.value}
             </b>
-            <span className="mt-1 block text-[11.5px] font-medium text-mist">
+            <span className="mt-0.5 block text-[11px] font-medium text-mist leading-none">
               {s.subtext}
             </span>
           </div>

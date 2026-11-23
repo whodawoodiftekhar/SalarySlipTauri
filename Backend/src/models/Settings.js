@@ -2,49 +2,42 @@ import mongoose from "mongoose";
 
 export const DEFAULT_SETTINGS = {
   company: {
-    name: "COMM-IT",
-    legalName: "COMM-IT INDIA PVT. LTD.",
-    city: "New Delhi",
-    pincode: "110025",
-    addressShort: "New Delhi 110025",
-    addressLines: [
-      "S-113, First Floor, Salcon Aurum, Jasola District Centre",
-      "Opposite Omax Square, New Delhi 110025",
-    ],
+    name: "",
+    legalName: "",
+    city: "",
+    pincode: "",
+    addressShort: "",
+    addressLines: [],
     logoUrl: "",
     watermarkText: "",
     isConfigured: false,
   },
-  payPeriod: "Jul 2026",
+  payPeriod: "",
   standardDays: 30,
-  departments: ["IT", "Design", "HR", "Finance", "Operations"],
+  departments: [],
   slipDefaults: {
-    bankName: "HDFC Bank",
-    bankAccountNo: "XXXXXXXXX",
-    pfAccountNo: "DL-XXXXXXXXXX",
-    footNote:
-      "This is a computer generated salary slip and does not require signature",
+    bankName: "",
+    bankAccountNo: "",
+    pfAccountNo: "",
+    footNote: "",
   },
   currentUser: {
-    initials: "HR",
-    name: "HR Admin",
-    email: "payroll@comm-it.com",
+    initials: "",
+    name: "",
+    email: "",
   },
 };
 
 const companySchema = new mongoose.Schema(
   {
-    name: { type: String, default: "COMM-IT" },
-    legalName: { type: String, default: "COMM-IT INDIA PVT. LTD." },
-    city: { type: String, default: "New Delhi" },
-    pincode: { type: String, default: "110025" },
-    addressShort: { type: String, default: "New Delhi 110025" },
+    name: { type: String, default: "" },
+    legalName: { type: String, default: "" },
+    city: { type: String, default: "" },
+    pincode: { type: String, default: "" },
+    addressShort: { type: String, default: "" },
     addressLines: {
       type: [String],
-      default: [
-        "S-113, First Floor, Salcon Aurum, Jasola District Centre",
-        "Opposite Omax Square, New Delhi 110025",
-      ],
+      default: [],
     },
     logoUrl: { type: String, default: "" },
     watermarkText: { type: String, default: "" },
@@ -55,13 +48,12 @@ const companySchema = new mongoose.Schema(
 
 const slipDefaultsSchema = new mongoose.Schema(
   {
-    bankName: { type: String, default: "HDFC Bank" },
-    bankAccountNo: { type: String, default: "XXXXXXXXX" },
-    pfAccountNo: { type: String, default: "DL-XXXXXXXXXX" },
+    bankName: { type: String, default: "" },
+    bankAccountNo: { type: String, default: "" },
+    pfAccountNo: { type: String, default: "" },
     footNote: {
       type: String,
-      default:
-        "This is a computer generated salary slip and does not require signature",
+      default: "",
     },
   },
   { _id: false }
@@ -69,9 +61,9 @@ const slipDefaultsSchema = new mongoose.Schema(
 
 const currentUserSchema = new mongoose.Schema(
   {
-    initials: { type: String, default: "HR" },
-    name: { type: String, default: "HR Admin" },
-    email: { type: String, default: "payroll@comm-it.com" },
+    initials: { type: String, default: "" },
+    name: { type: String, default: "" },
+    email: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -79,11 +71,11 @@ const currentUserSchema = new mongoose.Schema(
 const settingsSchema = new mongoose.Schema(
   {
     company: { type: companySchema, default: () => DEFAULT_SETTINGS.company },
-    payPeriod: { type: String, default: "Jul 2026" },
+    payPeriod: { type: String, default: "" },
     standardDays: { type: Number, default: 30 },
     departments: {
       type: [String],
-      default: ["IT", "Design", "HR", "Finance", "Operations"],
+      default: [],
     },
     slipDefaults: {
       type: slipDefaultsSchema,

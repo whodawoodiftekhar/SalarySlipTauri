@@ -110,6 +110,91 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/employees/bulk-import
+ * Bulk upserts employee profiles from Excel import and initializes or syncs their salary structures.
+ */
+router.post("/bulk-import", async (req, res) => {
+  try {
+    const { employees } = req.body;
+    if (!Array.isArray(employees) || employees.length === 0) {
+      return res.status(400).json({ message: "No employee records provided" });
+    }
+
+    const dbCatalog = await SalaryComponent.find().sort(CATALOG_SORT).lean();
+    let createdCount = 0;
+    let updatedCount = 0;
+    const errors = [];
+
+    for (const item of employees) {
+      try {
+        const id = String(item.id || "").trim();
+        const name = String(item.name || "").trim();
+        if (!id || !name) {
+          errors.push({ id, name, error: "Employee Code and Name are required" });
+          continue;
+        }
+
+        // Dynamically retain all fields provided in the item (including dynamic components)
+        const payload = { ...item, id, name };
+        const stringFields = new Set([
+          "id", "name", "email", "dept", "role", "bankName",
+          "bankAccountNo", "pfAccountNo", "ifsc", "pan", "uan",
+          "doj", "paymentMode", "pdfPassword"
+        ]);
+
+        for (const [key, val] of Object.entries(item)) {
+          if (stringFields.has(key)) {
+            payload[key] = val != null ? String(val).trim() : "";
+          } else if (val !== undefined && val !== null && val !== "") {
+            const parsed = num(val);
+            if (!isNaN(parsed)) {
+              payload[key] = parsed;
+            }
+          }
+        }
+        if (!payload.dept) payload.dept = "General";
+        if (!payload.role) payload.role = "Employee";
+
+        const existing = await Employee.findOne({ id }).lean();
+        if (existing) {
+          await Employee.findOneAndUpdate(
+            { id },
+            payload,
+            { returnDocument: "after", runValidators: true }
+          );
+          await syncStructureToProfile(id, payload, existing);
+          updatedCount++;
+        } else {
+          await Employee.create(payload);
+          await SalaryStructure.findOneAndUpdate(
+            { employeeId: id },
+            {
+              employeeId: id,
+              components: makeStructure(payload, dbCatalog),
+            },
+            { upsert: true, returnDocument: "after" }
+          );
+          createdCount++;
+        }
+      } catch (rowErr) {
+        errors.push({ id: item.id || "Unknown", error: rowErr.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      total: employees.length,
+      created: createdCount,
+      updated: updatedCount,
+      errors,
+    });
+  } catch (err) {
+    console.error("Bulk import failed:", err);
+    res.status(500).json({ message: err.message || "Bulk import failed" });
+  }
+});
+
 /** PUT /api/employees/:id — update the employee record and its structure */
 router.put("/:id", async (req, res) => {
   try {
